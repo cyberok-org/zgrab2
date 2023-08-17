@@ -30,9 +30,9 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/cyberok-org/nmap-service-probes/nmap"
 	log "github.com/sirupsen/logrus"
 	"github.com/zmap/zgrab2"
-	"github.com/zmap/zgrab2/lib/nmap"
 )
 
 // ScanResults instances are returned by the module's Scan function.

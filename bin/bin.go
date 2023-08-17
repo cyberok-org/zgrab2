@@ -11,10 +11,10 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/cyberok-org/nmap-service-probes/nmap"
 	log "github.com/sirupsen/logrus"
 	flags "github.com/zmap/zflags"
 	"github.com/zmap/zgrab2"
-	"github.com/zmap/zgrab2/lib/nmap"
 )
 
 // Get the value of the ZGRAB2_MEMPROFILE variable (or the empty string).

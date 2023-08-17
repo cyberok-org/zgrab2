@@ -14,7 +14,7 @@
 
 package ssh
 
-import "github.com/zmap/zgrab2/lib/nmap"
+import "github.com/cyberok-org/nmap-service-probes/nmap"
 
 // HandshakeLog contains detailed information about each step of the
 // SSH handshake, and can be encoded to JSON.

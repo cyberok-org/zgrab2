@@ -22,11 +22,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cyberok-org/nmap-service-probes/nmap"
 	log "github.com/sirupsen/logrus"
 	"github.com/zmap/zcrypto/tls"
 	"github.com/zmap/zgrab2"
 	"github.com/zmap/zgrab2/lib/http"
-	"github.com/zmap/zgrab2/lib/nmap"
 	"golang.org/x/net/html/charset"
 )
 

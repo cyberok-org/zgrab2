@@ -5,9 +5,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/cyberok-org/nmap-service-probes/nmap"
 	log "github.com/sirupsen/logrus"
 	"github.com/zmap/zgrab2"
-	"github.com/zmap/zgrab2/lib/nmap"
 	"github.com/zmap/zgrab2/lib/ssh"
 )
 
