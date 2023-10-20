@@ -1,29 +1,31 @@
 // Package mysql is a very basic MySQL connection library.
 // Usage:
-//    var sql *mysql.Connection := mysql.NewConnection(&mysql.Config{
-//    Host: targetHost,
-//    Port: targetPort,
-//  })
-//  err := sql.Connect()
-//  defer sql.Disconnect()
+//
+//	  var sql *mysql.Connection := mysql.NewConnection(&mysql.Config{
+//	  Host: targetHost,
+//	  Port: targetPort,
+//	})
+//	err := sql.Connect()
+//	defer sql.Disconnect()
+//
 // The Connection exports the connection details via the ConnectionLog.
 package mysql
 
 import (
 	"bufio"
-
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"strings"
+	"time"
 
 	log "github.com/sirupsen/logrus"
+
 	"github.com/zmap/zgrab2"
-	"time"
-	"io"
 )
 
 const (
@@ -179,6 +181,7 @@ type ConnectionLog struct {
 	Handshake  *ConnectionLogEntry `json:"handshake,omitempty"`
 	Error      *ConnectionLogEntry `json:"error,omitempty"`
 	SSLRequest *ConnectionLogEntry `json:"ssl_request,omitempty"`
+	Banner     []byte
 }
 
 // Connection holds the state of a single connection.
@@ -237,6 +240,8 @@ type ConnectionLogEntry struct {
 
 	// Parsed is the parsed packet body. May be nil on a decode error.
 	Parsed PacketInfo `json:"parsed,omitempty"`
+
+	Banner []byte
 }
 
 // HandshakePacket is the packet the server sends immediately upon a
@@ -512,7 +517,7 @@ func (e *ERRPacket) GetErrorID() string {
 func (e *ERRPacket) GetScanError() *zgrab2.ScanError {
 	return &zgrab2.ScanError{
 		Status: zgrab2.SCAN_APPLICATION_ERROR,
-		Err: e,
+		Err:    e,
 	}
 }
 
@@ -639,11 +644,13 @@ func trunc(body []byte, n int) (result string) {
 	// 16 bytes = 32 bytes hex * 2 + ellipses = 3 * 2 + len("[%d bytes]") = 8 + log10(len - 32)
 	// max len = 24 bits ~= 16 million = 8 digits
 	// = 64 + 6 + 8 + 8 <= 96
-	return fmt.Sprintf("%x...[%d bytes]...%x", body[:16], n - 32, body[n-16:])
+	return fmt.Sprintf("%x...[%d bytes]...%x", body[:16], n-32, body[n-16:])
 }
 
 // Read a packet and sequence identifier off of the given connection
 func (c *Connection) readPacket() (*ConnectionLogEntry, error) {
+	packet := ConnectionLogEntry{}
+
 	reader := bufio.NewReader(c.Connection)
 	var header [4]byte
 	n, err := io.ReadFull(reader, header[:])
@@ -654,6 +661,9 @@ func (c *Connection) readPacket() (*ConnectionLogEntry, error) {
 		// Note -- because of ReadFull, this should be unreachable
 		return nil, fmt.Errorf("wrong number of bytes returned (got %d, expected 4)", n)
 	}
+
+	packet.Banner = append(packet.Banner, header[:]...)
+
 	seq := header[3]
 	// packetSize is actually uint24; clear the bogus MSB before decoding
 	header[3] = 0
@@ -674,10 +684,9 @@ func (c *Connection) readPacket() (*ConnectionLogEntry, error) {
 		}
 		return nil, zgrab2.NewScanError(status, err)
 	}
-	packet := ConnectionLogEntry{
-		Length:         packetSize,
-		SequenceNumber: seq,
-	}
+
+	packet.Length = packetSize
+	packet.SequenceNumber = seq
 
 	var body = make([]byte, packetSize, packetSize)
 	n, err = io.ReadFull(reader, body)
@@ -686,6 +695,7 @@ func (c *Connection) readPacket() (*ConnectionLogEntry, error) {
 	}
 	// Log the raw body, even if the parsing fails
 	packet.Raw = base64.StdEncoding.EncodeToString(body)
+	packet.Banner = append(packet.Banner, body...)
 
 	if seq != c.SequenceNumber {
 		log.Debugf("Sequence number mismatch: got 0x%x, expected 0x%x", seq, c.SequenceNumber+1)
@@ -755,6 +765,7 @@ func (c *Connection) Connect(conn net.Conn) error {
 		log.Debugf("Error reading handshake packet: %v", err)
 		return fmt.Errorf("Error reading server handshake packet: %s", err)
 	}
+	c.ConnectionLog.Banner = packet.Banner
 
 	switch p := packet.Parsed.(type) {
 	case *HandshakePacket:
@@ -802,8 +813,8 @@ func readLenInt(body []byte) (uint64, []byte, error) {
 		return uint64(v), body[1:], nil
 	}
 	size := int(v - 0xfa)
-	if bodyLen - 1 < size {
-		return 0, nil, fmt.Errorf("invalid data: first byte=0x%02x, required size=%d, got %d", v, size, bodyLen - 1)
+	if bodyLen-1 < size {
+		return 0, nil, fmt.Errorf("invalid data: first byte=0x%02x, required size=%d, got %d", v, size, bodyLen-1)
 	}
 	switch v {
 	case 0xfb:
@@ -817,7 +828,7 @@ func readLenInt(body []byte) (uint64, []byte, error) {
 		return uint64(binary.LittleEndian.Uint32(body[1:5]) & 0x00ffffff), body[4:], nil
 	case 0xfe:
 		if bodyLen < 9 {
-			return 0, nil, fmt.Errorf("invalid data: first byte=0xfe, required size=8, got %d", bodyLen - 1)
+			return 0, nil, fmt.Errorf("invalid data: first byte=0xfe, required size=8, got %d", bodyLen-1)
 		}
 		// eight little-endian bytes
 		return binary.LittleEndian.Uint64(body[1:9]), body[9:], nil

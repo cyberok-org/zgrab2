@@ -8,8 +8,10 @@ import (
 	"reflect"
 
 	log "github.com/sirupsen/logrus"
+
 	"github.com/zmap/zgrab2"
 	"github.com/zmap/zgrab2/lib/mysql"
+	"github.com/zmap/zgrab2/lib/nmap"
 )
 
 // ScanResults contains detailed information about the scan.
@@ -71,6 +73,8 @@ type ScanResults struct {
 
 	// TLSLog contains the usual shared TLS logs.
 	TLSLog *zgrab2.TLSLog `json:"tls,omitempty"`
+
+	Products []nmap.ExtractResult `json:"products,omitempty"`
 }
 
 // Put the error into the results.
@@ -134,7 +138,8 @@ func readResultsFromConnectionLog(connectionLog *mysql.ConnectionLog) *ScanResul
 type Flags struct {
 	zgrab2.BaseFlags
 	zgrab2.TLSFlags
-	Verbose bool `long:"verbose" description:"More verbose logging, include debug fields in the scan results"`
+	Verbose         bool   `long:"verbose" description:"More verbose logging, include debug fields in the scan results"`
+	ProductMatchers string `long:"product-matchers" default:"*/mysql" description:"Matchers from nmap-service-probes file used to detect product info. Format: <probe>/<service>[,...] (wildcards supported)."`
 }
 
 // Module is the implementation of the zgrab2.Module interface.
@@ -143,7 +148,8 @@ type Module struct {
 
 // Scanner is the implementation of the zgrab2.Scanner interface.
 type Scanner struct {
-	config *Flags
+	config          *Flags
+	productMatchers nmap.Matchers
 }
 
 // RegisterModule is called by modules/mysql.go to register the scanner.
@@ -187,6 +193,9 @@ func (s *Scanner) Init(flags zgrab2.ScanFlags) error {
 	if f.Verbose {
 		log.SetLevel(log.DebugLevel)
 	}
+
+	s.productMatchers = nmap.SelectMatchersGlob(f.ProductMatchers)
+
 	return nil
 }
 
@@ -211,10 +220,10 @@ func (scanner *Scanner) GetTrigger() string {
 }
 
 // Scan probles the target for a MySQL server.
-// 1. Connects and waits to receive the handshake packet.
-// 2. If the server supports SSL, send an SSLRequest packet, then
-//    perform the standard TLS actions.
-// 3. Process and return the results.
+//  1. Connects and waits to receive the handshake packet.
+//  2. If the server supports SSL, send an SSLRequest packet, then
+//     perform the standard TLS actions.
+//  3. Process and return the results.
 func (s *Scanner) Scan(t zgrab2.ScanTarget) (status zgrab2.ScanStatus, result interface{}, thrown error) {
 	var tlsConn *zgrab2.TLSConnection
 	sql := mysql.NewConnection(&mysql.Config{})
@@ -225,10 +234,12 @@ func (s *Scanner) Scan(t zgrab2.ScanTarget) (status zgrab2.ScanStatus, result in
 			status = zgrab2.TryGetScanStatus(thrown)
 			// TODO FIXME: do more to distinguish errors
 		}
-		result = readResultsFromConnectionLog(&sql.ConnectionLog)
+		res := readResultsFromConnectionLog(&sql.ConnectionLog)
 		if tlsConn != nil {
-			result.(*ScanResults).TLSLog = tlsConn.GetLog()
+			res.TLSLog = tlsConn.GetLog()
 		}
+		res.Products, _ = s.productMatchers.ExtractInfoFromBytes(sql.ConnectionLog.Banner)
+		result = res
 	}()
 	defer sql.Disconnect()
 	var err error
