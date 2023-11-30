@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"sync"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/zmap/zgrab2/lib/output"
@@ -165,6 +166,7 @@ func grabTarget(input ScanTarget, m *Monitor) []byte {
 				panic(e)
 			}
 		}(scannerName)
+		log.Infof("call scanner with %s, %s, %s", input.IP.String(), input.Tag, scannerName)
 		name, res := RunScanner(*scanner, m, input)
 		moduleResult[name] = res
 		if res.Error != nil && !config.Multiple.ContinueOnError {
@@ -174,7 +176,7 @@ func grabTarget(input ScanTarget, m *Monitor) []byte {
 			break
 		}
 	}
-
+	log.Info("after loop in grabTarget")
 	raw := BuildGrabFromInputResponse(&input, moduleResult)
 	result, err := EncodeGrab(raw, includeDebugOutput())
 	if err != nil {
@@ -212,14 +214,16 @@ func Process(mon *Monitor) {
 			}
 			for obj := range processQueue {
 				for run := uint(0); run < uint(config.ConnectionsPerHost); run++ {
+					log.Infof("ASK: %+v", obj)
+					t1 := time.Now().UTC()
 					result := grabTarget(obj, mon)
 					outputQueue <- result
+					log.Infof("RECV: %+v, TIME: %s", obj, time.Duration(time.Now().UTC().Sub(t1)))
 				}
 			}
 			workerDone.Done()
 		}(i)
 	}
-
 	if err := config.inputTargets(processQueue); err != nil {
 		log.Fatal(err)
 	}

@@ -4,6 +4,7 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/zmap/zgrab2"
@@ -71,6 +72,7 @@ func (s *SSHScanner) Init(flags zgrab2.ScanFlags) error {
 	f, _ := flags.(*SSHFlags)
 	s.config = f
 	s.productMatchers = nmap.SelectMatchersGlob(f.ProductMatchers)
+	log.Infof("scanner %s inited, matchers count: %d", s.GetName(), len(s.productMatchers))
 	return nil
 }
 
@@ -126,7 +128,17 @@ func (s *SSHScanner) Scan(t zgrab2.ScanTarget) (zgrab2.ScanStatus, interface{}, 
 	// TODO FIXME: Distinguish error types
 	status := zgrab2.TryGetScanStatus(err)
 
-	data.Products, _ = s.productMatchers.ExtractInfoFromBytes([]byte(data.RawBanner))
+	var mTotal int
+	var mPassed int
+	var mError int
+	t1 := time.Now().UTC()
+
+	data.Products, mTotal, mTotal, mError, _ = s.productMatchers.ExtractInfoFromBytes([]byte(data.RawBanner))
+
+	log.Infof("target: %s; tag: %s banner size %d, took %s, match total: %d, match passed: %d, match error: %d",
+		t.IP.String(), t.Tag, len(data.RawBanner), time.Now().UTC().Sub(t1), mTotal, mPassed, mError)
+
+	//data.Products, _ = s.productMatchers.ExtractInfoFromBytes([]byte(data.RawBanner))
 
 	return status, data, err
 }

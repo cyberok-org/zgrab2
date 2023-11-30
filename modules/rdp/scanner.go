@@ -1,6 +1,8 @@
 package rdp
 
 import (
+	"time"
+
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 
@@ -53,6 +55,7 @@ func (scanner *Scanner) Init(flags zgrab2.ScanFlags) error {
 	f, _ := flags.(*Flags)
 	scanner.config = f
 	scanner.productMatchers = nmap.SelectMatchersGlob(f.ProductMatchers)
+	log.Infof("scanner %s inited, matchers count: %d", scanner.GetName(), len(scanner.productMatchers))
 	return nil
 }
 
@@ -98,7 +101,18 @@ func (scanner *Scanner) Scan(target zgrab2.ScanTarget) (zgrab2.ScanStatus, inter
 	}
 
 	result := ScanResults{Banner: banner}
-	result.Products, _ = scanner.productMatchers.ExtractInfoFromBytes(banner)
+
+	var mTotal int
+	var mPassed int
+	var mError int
+	t1 := time.Now().UTC()
+
+	result.Products, mTotal, mTotal, mError, _ = scanner.productMatchers.ExtractInfoFromBytes(banner)
+
+	log.Infof("target: %s; port: %s banner size %d, took %s, match total: %d, match passed: %d, match error: %d",
+		target.IP.String(), target.Tag, len(banner), time.Now().UTC().Sub(t1), mTotal, mPassed, mError)
+
+	//	result.Products, _ = scanner.productMatchers.ExtractInfoFromBytes(banner)
 
 	answer := newFirstAnswer(banner)
 	if !answer.IsRDP {

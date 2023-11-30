@@ -9,10 +9,12 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"net"
 	"regexp"
 	"strconv"
+	"time"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/zmap/zgrab2"
 	"github.com/zmap/zgrab2/lib/nmap"
@@ -129,6 +131,8 @@ func (scanner *Scanner) Init(flags zgrab2.ScanFlags) error {
 	}
 
 	scanner.productMatchers = nmap.SelectMatchersGlob(f.ProductMatchers)
+
+	log.Infof("scanner %s inited, matchers count: %d", scanner.GetName(), len(scanner.productMatchers))
 	return nil
 }
 
@@ -195,7 +199,17 @@ func (scanner *Scanner) Scan(target zgrab2.ScanTarget) (zgrab2.ScanStatus, inter
 		results.Banner = hex.EncodeToString(ret)
 	}
 
-	results.Products, _ = scanner.productMatchers.ExtractInfoFromBytes(ret)
+	var mTotal int
+	var mPassed int
+	var mError int
+	t1 := time.Now().UTC()
+
+	results.Products, mTotal, mTotal, mError, _ = scanner.productMatchers.ExtractInfoFromBytes(ret)
+
+	log.Infof("target: %s; port: %s banner size %d, took %s, match total: %d, match passed: %d, match error: %d",
+		target.IP.String(), target.Tag, len(ret), time.Now().UTC().Sub(t1), mTotal, mPassed, mError)
+
+	//results.Products, _ = scanner.productMatchers.ExtractInfoFromBytes(ret)
 
 	if scanner.regex.Match(ret) {
 		return zgrab2.SCAN_SUCCESS, &results, nil

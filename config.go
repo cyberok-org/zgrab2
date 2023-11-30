@@ -143,3 +143,8 @@ func includeDebugOutput() bool {
 func NmapServiceProbes() string {
 	return config.NmapServiceProbes
 }
+
+// TODO: remove this. Made by mkn due to #412 resolution
+func GetConfig() *Config {
+	return &config
+}

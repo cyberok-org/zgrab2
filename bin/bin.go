@@ -1,6 +1,7 @@
 package bin
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"runtime/pprof"
@@ -8,7 +9,6 @@ import (
 	"time"
 
 	"fmt"
-	"runtime"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
@@ -21,14 +21,16 @@ import (
 // This may include {TIMESTAMP} or {NANOS}, which should be replaced using
 // getFormattedFile().
 func getMemProfileFile() string {
-	return "zgrab_mem_{TIMESTAMP}.txt" //os.Getenv("ZGRAB2_MEMPROFILE")
+	return "mem-{TIMESTAMP}-{NANOS}.txt"
+	//return os.Getenv("ZGRAB2_MEMPROFILE")
 }
 
 // Get the value of the ZGRAB2_CPUPROFILE variable (or the empty string).
 // This may include {TIMESTAMP} or {NANOS}, which should be replaced using
 // getFormattedFile().
 func getCPUProfileFile() string {
-	return "zgrab_cpu_{TIMESTAMP}.txt" //os.Getenv("ZGRAB2_CPUPROFILE")
+	return "cpu-{TIMESTAMP}-{NANOS}.txt"
+	//return os.Getenv("ZGRAB2_CPUPROFILE")
 }
 
 // Replace instances in formatString of {TIMESTAMP} with when formatted as
@@ -51,7 +53,8 @@ func dumpHeapProfile() {
 		if err != nil {
 			log.Fatal("could not create heap profile: ", err)
 		}
-		runtime.GC()
+		// Disabled by mkn during resolution of #412
+		//runtime.GC()
 		if err := pprof.WriteHeapProfile(f); err != nil {
 			log.Fatal("could not write heap profile: ", err)
 		}
@@ -92,6 +95,12 @@ func ZGrab2Main() {
 	startCPUProfile()
 	defer stopCPUProfile()
 	defer dumpHeapProfile()
+
+	log.SetFormatter(&log.TextFormatter{
+		DisableColors: true,
+		FullTimestamp: true,
+	})
+
 	_, modType, flag, err := zgrab2.ParseCommandLine(os.Args[1:])
 
 	// Blanked arg is positional arguments
@@ -105,6 +114,8 @@ func ZGrab2Main() {
 		// Didn't output help. Unknown parsing error.
 		log.Fatalf("could not parse flags: %s", err)
 	}
+
+	log.Infof("parsed command line params, modType: %s, flag: %+v ", modType, flag)
 
 	modTypes := []string{modType}
 	modFlags := []any{flag}
@@ -124,10 +135,16 @@ func ZGrab2Main() {
 		}
 	}
 
+	cfg := zgrab2.GetConfig()
+
+	log.Infof("config loaded:\n%+v", *cfg)
+
 	// Load nmap service probes from a file.
 	if filename := zgrab2.NmapServiceProbes(); filename != "" {
 		if err := nmap.LoadServiceProbes(filename); err != nil {
 			log.Fatalf("load nmap service probes: %v", err)
+		} else {
+			log.Info("nmap probes loaded")
 		}
 	}
 
@@ -137,19 +154,36 @@ func ZGrab2Main() {
 		s := mod.NewScanner()
 		s.Init(f)
 		zgrab2.RegisterScan(s.GetName(), s)
+		//log.Infof("scaner %s, with trigger: %s registered with flags: %+v", s.GetName(), s.GetTrigger(), f)
 	}
 
 	wg := sync.WaitGroup{}
 	monitor := zgrab2.MakeMonitor(1, &wg)
+
 	monitor.Callback = func(_ string) {
 		dumpHeapProfile()
 	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		t := time.NewTicker(time.Second * 30)
+		for {
+			select {
+			case <-t.C:
+				dumpHeapProfile()
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
 	start := time.Now()
 	log.Infof("started grab at %s", start.Format(time.RFC3339))
 	zgrab2.Process(monitor)
 	end := time.Now()
 	log.Infof("finished grab at %s", end.Format(time.RFC3339))
 	monitor.Stop()
+	cancel()
 	wg.Wait()
 	s := Summary{
 		StatusesPerModule: monitor.GetStatuses(),

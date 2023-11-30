@@ -1,11 +1,13 @@
 package nmap
 
 import (
-	"errors"
 	"io"
 	"os"
+	"time"
 
 	"github.com/gobwas/glob"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type Matchers []*Matcher
@@ -27,6 +29,7 @@ func (ms *Matchers) Load(in io.Reader) error {
 		}
 	}
 
+	log.Infof("Loaded %d matchers", len(matchers))
 	*ms = matchers
 	return nil
 }
@@ -62,17 +65,30 @@ type ExtractResult struct {
 	Info[string]
 }
 
-func (ms Matchers) ExtractInfoFromBytes(input []byte) ([]ExtractResult, error) {
+func (ms Matchers) ExtractInfoFromBytes(input []byte) ([]ExtractResult, int, int, int, error) {
+	// var result []ExtractResult
+	// var errs []error
+	// var matchersTotal int
+	// var matchersPassed int
+	// var matchersError int
+	// return result, matchersTotal, matchersPassed, matchersError, errors.Join(errs...)
 	return ms.ExtractInfoFromRunes(intoRunes(input))
 }
 
-func (ms Matchers) ExtractInfoFromRunes(input []rune) ([]ExtractResult, error) {
+func (ms Matchers) ExtractInfoFromRunes(input []rune) ([]ExtractResult, int, int, int, error) {
 	var result []ExtractResult
-	var errs []error
+	//var errs []error
+	var matchersTotal int
+	var matchersPassed int
+	var matchersError int
+	t1 := time.Now().UTC()
 	for _, m := range ms {
+
 		r := m.MatchRunes(input)
+		matchersTotal++
 		if err := r.Err(); err != nil {
-			errs = append(errs, err)
+			//errs = append(errs, err)
+			matchersError++
 			continue
 		}
 		if r.Found() {
@@ -83,9 +99,12 @@ func (ms Matchers) ExtractInfoFromRunes(input []rune) ([]ExtractResult, error) {
 				SoftMatch: m.Soft,
 				Info:      r.Render(m.Info),
 			})
+			matchersPassed++
 		}
 	}
-	return result, errors.Join(errs...)
+	log.Infof("STAT total: %d, PASSED:  %d, ERROR: %d, time: %s, input size: %d",
+		matchersTotal, matchersPassed, matchersError, time.Now().UTC().Sub(t1), len(input))
+	return result, matchersTotal, matchersPassed, matchersError, nil //errors.Join(errs...)
 }
 
 var globalMatchers Matchers
