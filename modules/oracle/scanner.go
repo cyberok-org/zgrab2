@@ -168,6 +168,11 @@ func (scanner *Scanner) Init(flags zgrab2.ScanFlags) error {
 	return nil
 }
 
+// GetProducts returns nmap matched products.
+func (scanner *Scanner) GetProducts(i interface{}) interface{} {
+	return i
+}
+
 // InitPerSender initializes the scanner for a given sender.
 func (scanner *Scanner) InitPerSender(senderID int) error {
 	return nil
@@ -209,7 +214,7 @@ func (scanner *Scanner) getTNSDriver() *TNSDriver {
 //  6. If the response is...
 //     a. ...a Resend packet, then set result.DidResend and re-send the packet.
 //     b. ...a Refused packet, then set the result.RefuseReason and RefuseError,
-//        then exit.
+//     then exit.
 //     c. ...a Redirect packet, then set result.RedirectTarget and exit.
 //     d. ...an Accept packet, go to 7
 //     e. ...anything else: exit with SCAN_APPLICATION_ERROR

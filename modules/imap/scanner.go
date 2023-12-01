@@ -25,8 +25,8 @@ package imap
 import (
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
-	"time"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/zmap/zgrab2"
@@ -130,6 +130,17 @@ func (scanner *Scanner) Init(flags zgrab2.ScanFlags) error {
 	return nil
 }
 
+// GetProducts returns nmap matched products.
+func (scanner *Scanner) GetProducts(i interface{}) interface{} {
+	if sr, ok := i.(*ScanResults); ok && sr != nil {
+		sr.Products, _ = scanner.productMatchers.ExtractInfoFromBytes([]byte(sr.Banner))
+		return sr
+	} else {
+		log.Infof("type does not match, expected %s, got type: %s , value: %+v", "*imap.ScanResults", reflect.TypeOf(i), i)
+		return i
+	}
+}
+
 // InitPerSender initializes the scanner for a given sender.
 func (scanner *Scanner) InitPerSender(senderID int) error {
 	return nil
@@ -220,17 +231,17 @@ func (scanner *Scanner) Scan(target zgrab2.ScanTarget) (zgrab2.ScanStatus, inter
 	}
 	result.Banner = banner
 
-	var mTotal int
-	var mPassed int
-	var mError int
-	t1 := time.Now().UTC()
+	// var mTotal int
+	// var mPassed int
+	// var mError int
+	// t1 := time.Now().UTC()
 
-	result.Products, mTotal, mTotal, mError, _ = scanner.productMatchers.ExtractInfoFromBytes([]byte(banner))
+	// result.Products, mTotal, mTotal, mError, _ = scanner.productMatchers.ExtractInfoFromBytes([]byte(banner))
 
-	log.Infof("target: %s; port: %s banner size %d, took %s, match total: %d, match passed: %d, match error: %d",
-		target.IP.String(), target.Tag, len(banner), time.Now().UTC().Sub(t1), mTotal, mPassed, mError)
+	// log.Infof("target: %s; port: %s banner size %d, took %s, match total: %d, match passed: %d, match error: %d",
+	// 	target.IP.String(), target.Tag, len(banner), time.Now().UTC().Sub(t1), mTotal, mPassed, mError)
 
-	//result.Products, _ = scanner.productMatchers.ExtractInfoFromBytes([]byte(banner))
+	// //result.Products, _ = scanner.productMatchers.ExtractInfoFromBytes([]byte(banner))
 
 	if scanner.config.StartTLS {
 		ret, err := conn.SendCommand("a001 STARTTLS")

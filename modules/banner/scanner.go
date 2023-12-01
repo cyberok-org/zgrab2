@@ -10,9 +10,9 @@ import (
 	"io"
 	"io/ioutil"
 	"net"
+	"reflect"
 	"regexp"
 	"strconv"
-	"time"
 
 	log "github.com/sirupsen/logrus"
 
@@ -136,6 +136,18 @@ func (scanner *Scanner) Init(flags zgrab2.ScanFlags) error {
 	return nil
 }
 
+// GetProducts returns nmap matched products.
+func (scanner *Scanner) GetProducts(i interface{}) interface{} {
+
+	if sr, ok := i.(*Results); ok && sr != nil {
+		sr.Products, _ = scanner.productMatchers.ExtractInfoFromBytes([]byte(sr.Banner))
+		return sr
+	} else {
+		log.Infof("type does not match, expected %s, got type: %s , value: %+v", "*banner.Result", reflect.TypeOf(i), i)
+		return i
+	}
+}
+
 var NoMatchError = errors.New("pattern did not match")
 
 func (scanner *Scanner) Scan(target zgrab2.ScanTarget) (zgrab2.ScanStatus, interface{}, error) {
@@ -199,15 +211,15 @@ func (scanner *Scanner) Scan(target zgrab2.ScanTarget) (zgrab2.ScanStatus, inter
 		results.Banner = hex.EncodeToString(ret)
 	}
 
-	var mTotal int
-	var mPassed int
-	var mError int
-	t1 := time.Now().UTC()
+	// var mTotal int
+	// var mPassed int
+	// var mError int
+	// t1 := time.Now().UTC()
 
-	results.Products, mTotal, mTotal, mError, _ = scanner.productMatchers.ExtractInfoFromBytes(ret)
+	// results.Products, mTotal, mTotal, mError, _ = scanner.productMatchers.ExtractInfoFromBytes(ret)
 
-	log.Infof("target: %s; port: %s banner size %d, took %s, match total: %d, match passed: %d, match error: %d",
-		target.IP.String(), target.Tag, len(ret), time.Now().UTC().Sub(t1), mTotal, mPassed, mError)
+	// log.Infof("target: %s; port: %s banner size %d, took %s, match total: %d, match passed: %d, match error: %d",
+	// 	target.IP.String(), target.Tag, len(ret), time.Now().UTC().Sub(t1), mTotal, mPassed, mError)
 
 	//results.Products, _ = scanner.productMatchers.ExtractInfoFromBytes(ret)
 

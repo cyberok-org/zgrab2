@@ -2,9 +2,9 @@ package modules
 
 import (
 	"net"
+	"reflect"
 	"strconv"
 	"strings"
-	"time"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/zmap/zgrab2"
@@ -76,6 +76,17 @@ func (s *SSHScanner) Init(flags zgrab2.ScanFlags) error {
 	return nil
 }
 
+// GetProducts returns ScanResponse with matched products.
+func (scanner *SSHScanner) GetProducts(i interface{}) interface{} {
+	if sr, ok := i.(*ssh.HandshakeLog); ok && sr != nil {
+		sr.Products, _ = scanner.productMatchers.ExtractInfoFromBytes([]byte(sr.Banner))
+		return sr
+	} else {
+		log.Infof("type does not match, expected %s, got type: %s , value: %+v", "*ssh.HandshakeLog", reflect.TypeOf(i), i)
+		return i
+	}
+}
+
 func (s *SSHScanner) InitPerSender(senderID int) error {
 	return nil
 }
@@ -128,15 +139,15 @@ func (s *SSHScanner) Scan(t zgrab2.ScanTarget) (zgrab2.ScanStatus, interface{}, 
 	// TODO FIXME: Distinguish error types
 	status := zgrab2.TryGetScanStatus(err)
 
-	var mTotal int
-	var mPassed int
-	var mError int
-	t1 := time.Now().UTC()
+	// var mTotal int
+	// var mPassed int
+	// var mError int
+	// t1 := time.Now().UTC()
 
-	data.Products, mTotal, mTotal, mError, _ = s.productMatchers.ExtractInfoFromBytes([]byte(data.RawBanner))
+	// data.Products, mTotal, mTotal, mError, _ = s.productMatchers.ExtractInfoFromBytes([]byte(data.RawBanner))
 
-	log.Infof("target: %s; tag: %s banner size %d, took %s, match total: %d, match passed: %d, match error: %d",
-		t.IP.String(), t.Tag, len(data.RawBanner), time.Now().UTC().Sub(t1), mTotal, mPassed, mError)
+	// log.Infof("target: %s; tag: %s banner size %d, took %s, match total: %d, match passed: %d, match error: %d",
+	// 	t.IP.String(), t.Tag, len(data.RawBanner), time.Now().UTC().Sub(t1), mTotal, mPassed, mError)
 
 	//data.Products, _ = s.productMatchers.ExtractInfoFromBytes([]byte(data.RawBanner))
 

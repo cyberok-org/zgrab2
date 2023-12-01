@@ -94,6 +94,11 @@ func (scanner *Scanner) Init(flags zgrab2.ScanFlags) error {
 	return nil
 }
 
+// GetProducts returns nmap matched products.
+func (scanner *Scanner) GetProducts(i interface{}) interface{} {
+	return i
+}
+
 // InitPerSender does nothing in this module.
 func (scanner *Scanner) InitPerSender(senderID int) error {
 	return nil

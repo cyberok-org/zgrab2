@@ -15,6 +15,7 @@ import (
 type Grab struct {
 	IP     string                  `json:"ip,omitempty"`
 	Domain string                  `json:"domain,omitempty"`
+	Tag    string                  `json:"-"`
 	Data   map[string]ScanResponse `json:"data,omitempty"`
 }
 
@@ -125,6 +126,7 @@ func BuildGrabFromInputResponse(t *ScanTarget, responses map[string]ScanResponse
 	return &Grab{
 		IP:     ipstr,
 		Domain: t.Domain,
+		Tag:    t.Tag,
 		Data:   responses,
 	}
 }
@@ -186,17 +188,86 @@ func grabTarget(input ScanTarget, m *Monitor) []byte {
 	return result
 }
 
+func matchProducts(g *Grab) []byte {
+	for _, scannerName := range orderedScanners {
+		scanner := scanners[scannerName]
+		trigger := (*scanner).GetTrigger()
+		if g.Tag != trigger {
+			continue
+		}
+		if pr, ok := g.Data[scannerName]; ok {
+			if pr.Result != nil {
+				(*scanner).GetProducts(pr.Result)
+			}
+		}
+	}
+	result, err := EncodeGrab(g, includeDebugOutput())
+	if err != nil {
+		log.Errorf("unable to marshal data: %s", err)
+	}
+	return result
+}
+
+// grabTarget calls handler for each action
+func grabTarget2(input ScanTarget, m *Monitor) *Grab {
+	moduleResult := make(map[string]ScanResponse)
+	for _, scannerName := range orderedScanners {
+		t1 := time.Now().UTC()
+		scanner := scanners[scannerName]
+		trigger := (*scanner).GetTrigger()
+		if input.Tag != trigger {
+			continue
+		}
+		defer func(name string) {
+			if e := recover(); e != nil {
+				log.Errorf("Panic on scanner %s when scanning target %s: %#v", scannerName, input.String(), e)
+				// Bubble out original error (with original stack) in lieu of explicitly logging the stack / error
+				panic(e)
+			}
+		}(scannerName)
+
+		name, res := RunScanner(*scanner, m, input)
+
+		log.Infof("SCAN %s, tog: %s, scan: %s, time: %s",
+			input.IP.String(), input.Tag, scannerName, time.Now().UTC().Sub(t1))
+
+		moduleResult[name] = res
+		if res.Error != nil && !config.Multiple.ContinueOnError {
+			break
+		}
+		if res.Status == SCAN_SUCCESS && config.Multiple.BreakOnSuccess {
+			break
+		}
+	}
+	return BuildGrabFromInputResponse(&input, moduleResult)
+}
+
 // Process sets up an output encoder, input reader, and starts grab workers.
 func Process(mon *Monitor) {
 	workers := config.Senders
+	matchers := config.NmapMatchers
 	processQueue := make(chan ScanTarget, workers*4)
+	matchersQueue := make(chan *Grab, matchers*4)
 	outputQueue := make(chan []byte, workers*4)
 
 	//Create wait groups
 	var workerDone sync.WaitGroup
 	var outputDone sync.WaitGroup
+	var matcherDone sync.WaitGroup
 	workerDone.Add(int(workers))
+	matcherDone.Add(int(matchers))
 	outputDone.Add(1)
+
+	// Start nmap matchers goroutine
+	for i := 0; i < matchers; i++ {
+		go func() {
+			for grab := range matchersQueue {
+				result := matchProducts(grab)
+				outputQueue <- result
+			}
+			matcherDone.Done()
+		}()
+	}
 
 	// Start the output encoder
 	go func() {
@@ -205,6 +276,7 @@ func Process(mon *Monitor) {
 			log.Fatal(err)
 		}
 	}()
+
 	//Start all the workers
 	for i := 0; i < workers; i++ {
 		go func(i int) {
@@ -214,10 +286,13 @@ func Process(mon *Monitor) {
 			}
 			for obj := range processQueue {
 				for run := uint(0); run < uint(config.ConnectionsPerHost); run++ {
-					log.Infof("ASK: %+v", obj)
+					//log.Infof("ASK: %+v", obj)
 					t1 := time.Now().UTC()
-					result := grabTarget(obj, mon)
-					outputQueue <- result
+					result := grabTarget2(obj, mon)
+
+					log.Infof("MATCHERS QUERY %d", len(matchersQueue))
+
+					matchersQueue <- result
 					log.Infof("RECV: %+v, TIME: %s", obj, time.Duration(time.Now().UTC().Sub(t1)))
 				}
 			}
@@ -229,6 +304,8 @@ func Process(mon *Monitor) {
 	}
 	close(processQueue)
 	workerDone.Wait()
+	close(matchersQueue)
+	matcherDone.Wait()
 	close(outputQueue)
 	outputDone.Wait()
 }

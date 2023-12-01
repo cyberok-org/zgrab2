@@ -1,6 +1,8 @@
 package zgrab2
 
-import "time"
+import (
+	"time"
+)
 
 // Scanner is an interface that represents all functions necessary to run a scan
 type Scanner interface {
@@ -22,6 +24,9 @@ type Scanner interface {
 
 	// Scan connects to a host. The result should be JSON-serializable
 	Scan(t ScanTarget) (ScanStatus, interface{}, error)
+
+	// GetProducts returns matched nmap products
+	GetProducts(interface{}) interface{}
 }
 
 // ScanResponse is the result of a scan on a single host

@@ -161,12 +161,12 @@ func ZGrab2Main() {
 	monitor := zgrab2.MakeMonitor(1, &wg)
 
 	monitor.Callback = func(_ string) {
-		dumpHeapProfile()
+		//dumpHeapProfile()
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
-		t := time.NewTicker(time.Second * 30)
+		t := time.NewTicker(time.Minute * 1)
 		for {
 			select {
 			case <-t.C:

@@ -13,9 +13,9 @@ package ftp
 import (
 	"fmt"
 	"net"
+	"reflect"
 	"regexp"
 	"strings"
-	"time"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/zmap/zgrab2"
@@ -97,6 +97,18 @@ func (m *Module) NewFlags() interface{} {
 // NewScanner returns a new Scanner instance.
 func (m *Module) NewScanner() zgrab2.Scanner {
 	return new(Scanner)
+}
+
+// GetProducts returns nmap matched products.
+func (scanner *Scanner) GetProducts(i interface{}) interface{} {
+
+	if sr, ok := i.(*ScanResults); ok && sr != nil {
+		sr.Products, _ = scanner.productMatchers.ExtractInfoFromBytes([]byte(sr.Banner))
+		return sr
+	} else {
+		log.Infof("type does not match, expected %s, got type: %s , value: %+v", "*ftp.ScanResults", reflect.TypeOf(i), i)
+		return i
+	}
 }
 
 // Description returns an overview of this module.
@@ -284,17 +296,17 @@ func (s *Scanner) Scan(t zgrab2.ScanTarget) (status zgrab2.ScanStatus, result in
 	if err != nil {
 		return zgrab2.TryGetScanStatus(err), &ftp.results, err
 	}
-	var mTotal int
-	var mPassed int
-	var mError int
-	t1 := time.Now().UTC()
+	// var mTotal int
+	// var mPassed int
+	// var mError int
+	// t1 := time.Now().UTC()
 
-	ftp.results.Products, mTotal, mTotal, mError, _ = s.productMatchers.ExtractInfoFromBytes([]byte(ftp.results.Banner))
+	// ftp.results.Products, mTotal, mTotal, mError, _ = s.productMatchers.ExtractInfoFromBytes([]byte(ftp.results.Banner))
 
-	log.Infof("target: %s; port: %s banner size %d, took %s, match total: %d, match passed: %d, match error: %d",
-		t.IP.String(), t.Tag, len(ftp.results.Banner), time.Now().UTC().Sub(t1), mTotal, mPassed, mError)
+	// log.Infof("target: %s; port: %s banner size %d, took %s, match total: %d, match passed: %d, match error: %d",
+	// 	t.IP.String(), t.Tag, len(ftp.results.Banner), time.Now().UTC().Sub(t1), mTotal, mPassed, mError)
 
-	//ftp.results.Products, _ = s.productMatchers.ExtractInfoFromBytes([]byte(ftp.results.Banner))
+	// //ftp.results.Products, _ = s.productMatchers.ExtractInfoFromBytes([]byte(ftp.results.Banner))
 
 	if s.config.FTPAuthTLS && is200Banner {
 		if err := ftp.GetFTPSCertificates(); err != nil {

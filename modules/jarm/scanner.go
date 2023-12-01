@@ -82,6 +82,11 @@ func (m *Module) NewScanner() zgrab2.Scanner {
 	return new(Scanner)
 }
 
+// GetProducts returns nmap matched products.
+func (scanner *Scanner) GetProducts(i interface{}) interface{} {
+	return i
+}
+
 // Validate validates the flags and returns nil on success.
 func (f *Flags) Validate(args []string) error {
 	return nil

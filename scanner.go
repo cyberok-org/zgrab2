@@ -31,7 +31,6 @@ func PrintScanners() {
 func RunScanner(s Scanner, mon *Monitor, target ScanTarget) (string, ScanResponse) {
 	t := time.Now()
 	status, res, e := s.Scan(target)
-	log.Info("after scan")
 	var err *string
 	if e == nil {
 		mon.statusesChan <- moduleStatus{name: s.GetName(), st: statusSuccess}

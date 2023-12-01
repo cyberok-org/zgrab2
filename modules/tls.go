@@ -55,6 +55,10 @@ func (s *TLSScanner) Init(flags zgrab2.ScanFlags) error {
 	return nil
 }
 
+func (s *TLSScanner) GetProducts(i interface{}) interface{} {
+	return i
+}
+
 func (s *TLSScanner) GetName() string {
 	return s.config.Name
 }

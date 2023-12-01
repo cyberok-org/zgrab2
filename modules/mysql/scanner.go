@@ -165,6 +165,11 @@ func (m *Module) NewScanner() zgrab2.Scanner {
 	return new(Scanner)
 }
 
+// GetProducts returns nmap matched products.
+func (scanner *Scanner) GetProducts(i interface{}) interface{} {
+	return i
+}
+
 // Description returns an overview of this module.
 func (m *Module) Description() string {
 	return "Perform a handshake with a MySQL database"
@@ -211,10 +216,10 @@ func (scanner *Scanner) GetTrigger() string {
 }
 
 // Scan probles the target for a MySQL server.
-// 1. Connects and waits to receive the handshake packet.
-// 2. If the server supports SSL, send an SSLRequest packet, then
-//    perform the standard TLS actions.
-// 3. Process and return the results.
+//  1. Connects and waits to receive the handshake packet.
+//  2. If the server supports SSL, send an SSLRequest packet, then
+//     perform the standard TLS actions.
+//  3. Process and return the results.
 func (s *Scanner) Scan(t zgrab2.ScanTarget) (status zgrab2.ScanStatus, result interface{}, thrown error) {
 	var tlsConn *zgrab2.TLSConnection
 	sql := mysql.NewConnection(&mysql.Config{})

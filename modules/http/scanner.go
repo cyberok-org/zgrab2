@@ -18,6 +18,7 @@ import (
 	"io"
 	"net"
 	"net/url"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -276,6 +277,18 @@ func (scanner *Scanner) Init(flags zgrab2.ScanFlags) error {
 	}
 
 	return nil
+}
+
+// GetProducts returns nmap matched products.
+func (scanner *Scanner) GetProducts(i interface{}) interface{} {
+
+	if sr, ok := i.(*Results); ok && sr != nil {
+		sr.Products, _ = scanner.productMatchers.ExtractInfoFromBytes([]byte(sr.Banner))
+		return sr
+	} else {
+		log.Infof("type does not match, expected %s, got type: %s , value: %+v", "*http.Result", reflect.TypeOf(i), i)
+		return i
+	}
 }
 
 // InitPerSender does nothing in this module.
@@ -549,10 +562,6 @@ func (scan *scan) Grab() *zgrab2.ScanError {
 		request.Header.Set("Accept", "*/*")
 	}
 
-	var mTotal int
-	var mPassed int
-	var mError int
-
 	resp, err := scan.client.Do(request)
 	if resp != nil && resp.Body != nil {
 		defer resp.Body.Close()
@@ -582,11 +591,11 @@ func (scan *scan) Grab() *zgrab2.ScanError {
 				scan.results.Response.FaviconHash = scan.selectFaviconAndGetHash(htmlParserRes.fields[faviconHTMLField])
 				scan.results.Response.FQDNs = getUniqueFQDNFromLinks(htmlParserRes.fields[linksHTMLField])
 
-				t1 := time.Now().UTC()
-				scan.results.Products, mTotal, mTotal, mError, _ = scan.scanner.productMatchers.ExtractInfoFromBytes(banner)
+				// t1 := time.Now().UTC()
+				// scan.results.Products, mTotal, mTotal, mError, _ = scan.scanner.productMatchers.ExtractInfoFromBytes(banner)
 
-				log.Infof("target: %s; tag: %s banner size %d, took %s, match total: %d, match passed: %d, match error: %d",
-					scan.target.IP.String(), scan.target.Tag, len(banner), time.Now().UTC().Sub(t1), mTotal, mPassed, mError)
+				// log.Infof("target: %s; tag: %s banner size %d, took %s, match total: %d, match passed: %d, match error: %d",
+				// 	scan.target.IP.String(), scan.target.Tag, len(banner), time.Now().UTC().Sub(t1), mTotal, mPassed, mError)
 
 			}
 			if scan.scanner.config.RedirectsSucceed {
@@ -618,12 +627,7 @@ func (scan *scan) Grab() *zgrab2.ScanError {
 	scan.results.Response.FaviconHash = scan.selectFaviconAndGetHash(htmlParserRes.fields[faviconHTMLField])
 	scan.results.Response.FQDNs = getUniqueFQDNFromLinks(htmlParserRes.fields[linksHTMLField])
 
-	t1 := time.Now().UTC()
-
-	scan.results.Products, mTotal, mTotal, mError, _ = scan.scanner.productMatchers.ExtractInfoFromBytes(banner)
-
-	log.Infof("target: %s; tag: %s banner size %d, took %s, match total: %d, match passed: %d, match error: %d",
-		scan.target.IP.String(), scan.target.Tag, len(banner), time.Now().UTC().Sub(t1), mTotal, mPassed, mError)
+	//scan.results.Products, _ = scan.scanner.productMatchers.ExtractInfoFromBytes(banner)
 
 	bodyText := ""
 	decodedSuccessfully := false

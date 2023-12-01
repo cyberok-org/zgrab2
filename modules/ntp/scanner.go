@@ -831,6 +831,11 @@ func (module *Module) NewScanner() zgrab2.Scanner {
 	return new(Scanner)
 }
 
+// GetProducts returns nmap matched products.
+func (scanner *Scanner) GetProducts(i interface{}) interface{} {
+	return i
+}
+
 // Description returns an overview of this module.
 func (module *Module) Description() string {
 	return "Scan for NTP"
@@ -997,10 +1002,11 @@ func (scanner *Scanner) GetTime(sock net.Conn) (*NTPHeader, error) {
 
 // Scan scans the configured server with the settings provided by the command
 // line arguments as follows:
-// 1. If SkipGetTime is not set, send a GetTime packet to the server and read
-//    the response packet into the result.
-// 2. If MonList is set, send a MONLIST packet to the server and read the
-//    response packet into the result.
+//  1. If SkipGetTime is not set, send a GetTime packet to the server and read
+//     the response packet into the result.
+//  2. If MonList is set, send a MONLIST packet to the server and read the
+//     response packet into the result.
+//
 // The presence of an NTP service at the target can be inferred by a non-nil
 // result -- if the service does not return any data or if the response is not
 // a valid NTP packet, then the result will be nil.
