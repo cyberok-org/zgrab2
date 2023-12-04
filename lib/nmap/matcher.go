@@ -1,56 +1,81 @@
 package nmap
 
 import (
+	"fmt"
 	"strings"
-	"time"
 	"unicode/utf8"
 
-	"github.com/dlclark/regexp2"
+	pcre "github.com/zmap/zgrab2/lib/pcre"
 )
 
-var MatchTimeout = time.Second
-
 type Matcher struct {
+	Info[Template]
+
 	Protocol Protocol
 	Probe    string
 	Service  string
-	Info[Template]
-	Soft bool
-	re   *regexp2.Regexp
+	Soft     bool
+	Regexp   string
+	re       *pcre.Regexp
 }
 
 func MakeMatcher(probe ServiceProbe, match Match) (*Matcher, error) {
-	var opts regexp2.RegexOptions
+	var optsC, optsS int
 	if strings.Contains(match.Flags, "i") {
-		opts |= regexp2.IgnoreCase
+		optsC |= pcre.CASELESS
 	}
-	opts |= regexp2.Singleline
-	re, err := regexp2.Compile(match.Regex, opts)
+	optsC |= pcre.UTF8
+	optsS |= pcre.STUDY_JIT_COMPILE
+
+	re, err := pcre.CompileJIT(match.Regex, optsC, optsS)
 	if err != nil {
 		return nil, err
 	}
-	re.MatchTimeout = time.Second
-
 	return &Matcher{
 		Protocol: probe.Protocol,
 		Probe:    probe.Name,
 		Service:  match.Service,
 		Info:     match.Info,
 		Soft:     match.Soft,
-		re:       re,
+		Regexp:   match.Regex,
+		re:       &re,
 	}, err
 }
 
 func (m *Matcher) MatchBytes(input []byte) MatchResult {
-	return m.MatchRunes(intoRunes(input))
+
+	matcher := m.re.NewMatcherString(intoUTF8(input), 0)
+	err := error(nil)
+	if matcher == nil {
+		err = fmt.Errorf("can't create matcher")
+	}
+	return MatchResult{matcher, err}
 }
 
 func (m *Matcher) MatchRunes(input []rune) MatchResult {
-	match, err := m.re.FindRunesMatch(input)
-	return MatchResult{match, err}
+	matcher := m.re.NewMatcherString(string(input), 0)
+	err := error(nil)
+	if matcher == nil {
+		err = fmt.Errorf("can't create matcher")
+	}
+	return MatchResult{matcher, err}
 }
 
-func intoRunes(input []byte) []rune {
+func intoUTF8(input []byte) string {
+	runes := make([]rune, 0, len(input))
+	for len(input) > 0 {
+		if r, size := utf8.DecodeRune(input); r != utf8.RuneError {
+			runes = append(runes, r)
+			input = input[size:]
+		} else {
+			runes = append(runes, rune(input[0]))
+			input = input[1:]
+		}
+	}
+	return string(runes)
+}
+
+func intoRunes2(input []byte) []rune {
 	runes := make([]rune, 0, len(input))
 	for len(input) > 0 {
 		if r, size := utf8.DecodeRune(input); r != utf8.RuneError {
@@ -65,7 +90,7 @@ func intoRunes(input []byte) []rune {
 }
 
 type MatchResult struct {
-	match *regexp2.Match
+	match *pcre.Matcher
 	err   error
 }
 

@@ -3,13 +3,27 @@ package nmap
 import (
 	"testing"
 
-	"github.com/dlclark/regexp2"
 	"github.com/stretchr/testify/require"
-
 	"github.com/zmap/zgrab2/lib/nmap/template"
+	pcre "github.com/zmap/zgrab2/lib/pcre"
 )
 
-func TestMatcher(t *testing.T) {
+func TestMatcherJIT(t *testing.T) {
+	re, err := pcre.CompileJIT(`\dG|internet|gprs|[Kk]b|[Mm]b|Gb|lte`, 0, pcre.STUDY_JIT_COMPILE)
+
+	require.NoError(t, err)
+
+	m := re.NewMatcherString(`4GKb`, 0)
+	if !m.Matches {
+		t.Error("The match should be matched")
+	}
+	m = re.NewMatcherString(`Some value`, 0)
+	if m.Matches {
+		t.Error("The match should not be matched")
+	}
+}
+
+func TestMatcherTemplate(t *testing.T) {
 	m, err := MakeMatcher(ServiceProbe{}, Match{
 		MatchPattern: MatchPattern{
 			Regex: `(A+(B+)?)(C+)\xFF!`,
@@ -27,6 +41,7 @@ func TestMatcher(t *testing.T) {
 			},
 		},
 	})
+
 	require.NoError(t, err)
 
 	r := m.MatchBytes([]byte("AAABBCCCC\xFF!"))
@@ -45,27 +60,16 @@ func TestMatcher(t *testing.T) {
 
 func TestIntoRunes(t *testing.T) {
 	bin := []byte("A\x80\xFF\x00Я")
-	require.Equal(t, []rune{'A', 0x80, 0xFF, 0, 'Я'}, intoRunes(bin))
+	require.Equal(t, []rune{'A', 0x80, 0xFF, 0, 'Я'}, intoRunes2(bin))
 }
 
-func TestMatchBinaryInput(t *testing.T) {
+func TestMatcherBinaryInput(t *testing.T) {
 	// Binary input (invalid utf-8 string)
 	bin := []byte("A\x80\xFF\x00Я")
-	re := regexp2.MustCompile(`^A\x80\xFF\0Я$`, regexp2.None)
 
-	// Wrong conversion
-	m, err := re.FindStringMatch(string(bin))
-	require.NoError(t, err)
-	require.False(t, m != nil)
+	re := pcre.MustCompileJIT(`^A\x80\xFF\0Я$`, 0, pcre.STUDY_JIT_COMPILE)
 
-	// Wrong conversion
-	m, err = re.FindRunesMatch([]rune(string(bin)))
-	require.NoError(t, err)
-	require.False(t, m != nil)
-
-	// Right conversion
-	m, err = re.FindRunesMatch(intoRunes(bin))
-	require.NoError(t, err)
+	m := re.NewMatcherString(intoUTF8(bin), 0)
 	require.True(t, m != nil)
 }
 
@@ -75,9 +79,7 @@ func TestMatcherRegexpSingleLine(t *testing.T) {
 			Regex: `abc.+def`,
 		},
 	})
-
 	require.NoError(t, err)
-
 	r := m.MatchBytes([]byte("abc\r\ndef"))
 	require.NoError(t, r.Err())
 	require.True(t, r.Found())

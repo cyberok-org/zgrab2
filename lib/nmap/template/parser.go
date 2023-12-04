@@ -1,6 +1,8 @@
 package template
 
-import "bytes"
+import (
+	"bytes"
+)
 
 func Parse(s []byte) Template {
 	var p parser

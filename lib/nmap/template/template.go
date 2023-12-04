@@ -1,9 +1,10 @@
 package template
 
 import (
+	"strconv"
 	"strings"
 
-	"github.com/dlclark/regexp2"
+	pcre "github.com/zmap/zgrab2/lib/pcre"
 )
 
 type Template []Token
@@ -26,15 +27,17 @@ func Term(s string) Token                    { return Token{kind: tokenTerm, val
 func Group(index string) Token               { return Token{kind: tokenGroup, value: index} }
 func Func(name string, args ...string) Token { return Token{kind: tokenFunc, value: name, args: args} }
 
-func (tmpl Template) Render(match *regexp2.Match) string {
+func (tmpl Template) Render(match *pcre.Matcher) string {
 	var b strings.Builder
 	for _, token := range tmpl {
-		b.WriteString(token.Render(match))
+		res := token.Render(match)
+		b.WriteString(res)
 	}
 	return b.String()
 }
 
-func (token Token) Render(match *regexp2.Match) string {
+func (token Token) Render(match *pcre.Matcher) string {
+
 	switch token.kind {
 	case tokenTerm:
 		return token.value
@@ -46,14 +49,15 @@ func (token Token) Render(match *regexp2.Match) string {
 	return ""
 }
 
-func (token Token) renderGroup(match *regexp2.Match) string {
-	if g := match.GroupByName(token.value); g != nil {
-		return g.String()
+func (token Token) renderGroup(match *pcre.Matcher) string {
+	ind, _ := strconv.Atoi(token.value)
+	if g := match.GroupString(ind); g != "" {
+		return g
 	}
 	return ""
 }
 
-func (token Token) renderFunc(match *regexp2.Match) string {
+func (token Token) renderFunc(match *pcre.Matcher) string {
 	if fn, found := builtinFuncs[token.value]; found {
 		return fn(match, token.args...)
 	}

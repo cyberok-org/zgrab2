@@ -1,6 +1,7 @@
 package nmap
 
 import (
+	"errors"
 	"io"
 	"os"
 	"time"
@@ -65,19 +66,13 @@ type ExtractResult struct {
 	Info[string]
 }
 
-func (ms Matchers) ExtractInfoFromBytes(input []byte) ([]ExtractResult, int, int, int, error) {
-	// var result []ExtractResult
-	// var errs []error
-	// var matchersTotal int
-	// var matchersPassed int
-	// var matchersError int
-	// return result, matchersTotal, matchersPassed, matchersError, errors.Join(errs...)
-	return ms.ExtractInfoFromRunes(intoRunes(input))
+func (ms Matchers) ExtractInfoFromBytes(input []byte) ([]ExtractResult, error) {
+	return ms.ExtractInfoFromRunes(intoRunes2(input))
 }
 
-func (ms Matchers) ExtractInfoFromRunes(input []rune) ([]ExtractResult, int, int, int, error) {
+func (ms Matchers) ExtractInfoFromRunes(input []rune) ([]ExtractResult, error) {
 	var result []ExtractResult
-	//var errs []error
+	var errs []error
 	var matchersTotal int
 	var matchersPassed int
 	var matchersError int
@@ -87,7 +82,7 @@ func (ms Matchers) ExtractInfoFromRunes(input []rune) ([]ExtractResult, int, int
 		r := m.MatchRunes(input)
 		matchersTotal++
 		if err := r.Err(); err != nil {
-			//errs = append(errs, err)
+			errs = append(errs, err)
 			matchersError++
 			continue
 		}
@@ -95,16 +90,16 @@ func (ms Matchers) ExtractInfoFromRunes(input []rune) ([]ExtractResult, int, int
 			result = append(result, ExtractResult{
 				Probe:     m.Probe,
 				Service:   m.Service,
-				Regex:     m.re.String(),
+				Regex:     m.Regexp,
 				SoftMatch: m.Soft,
 				Info:      r.Render(m.Info),
 			})
 			matchersPassed++
 		}
 	}
-	log.Infof("STAT total: %d, PASSED:  %d, ERROR: %d, time: %s, input size: %d",
-		matchersTotal, matchersPassed, matchersError, time.Now().UTC().Sub(t1), len(input))
-	return result, matchersTotal, matchersPassed, matchersError, nil //errors.Join(errs...)
+	log.Infof("PRODUCTS total: %d, PASSED:  %d, ERROR: %d, time: %s, input size: %d, err: %s",
+		matchersTotal, matchersPassed, matchersError, time.Now().UTC().Sub(t1), len(input), errors.Join(errs...))
+	return result, nil
 }
 
 var globalMatchers Matchers
