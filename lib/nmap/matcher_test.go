@@ -1,6 +1,7 @@
 package nmap
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -24,6 +25,9 @@ func TestMatcherJIT(t *testing.T) {
 }
 
 func TestMatcherTemplate(t *testing.T) {
+
+	fmt.Println("JIT: ", pcre.Config(pcre.CONFIG_JIT))
+
 	m, err := MakeMatcher(ServiceProbe{}, Match{
 		MatchPattern: MatchPattern{
 			Regex: `(A+(B+)?)(C+)\xFF!`,
@@ -43,6 +47,17 @@ func TestMatcherTemplate(t *testing.T) {
 	})
 
 	require.NoError(t, err)
+
+	i := []byte("AAABBCCCC\xFF!")
+	s := intoUTF8(i)
+	d := string(i)
+
+	fmt.Println("config :", pcre.ConfigAll())
+	fmt.Println(i, " ", len(i))
+	fmt.Println(s, " ", len(s))
+	fmt.Println(d, " ", len(d))
+
+	fmt.Println(s == d)
 
 	r := m.MatchBytes([]byte("AAABBCCCC\xFF!"))
 	require.NoError(t, r.Err())
@@ -81,6 +96,7 @@ func TestMatcherRegexpSingleLine(t *testing.T) {
 	})
 	require.NoError(t, err)
 	r := m.MatchBytes([]byte("abc\r\ndef"))
+	fmt.Println("matched: ", r.match.Matches)
 	require.NoError(t, r.Err())
 	require.True(t, r.Found())
 }

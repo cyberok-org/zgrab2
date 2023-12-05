@@ -3,8 +3,6 @@ module github.com/zmap/zgrab2
 go 1.20
 
 require (
-	github.com/GRbit/go-pcre v1.0.1
-	github.com/dlclark/regexp2 v1.10.0
 	github.com/go-playground/validator/v10 v10.15.5
 	github.com/gobwas/glob v0.2.3
 	github.com/hdm/jarm-go v0.0.7

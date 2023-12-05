@@ -18,7 +18,6 @@ import (
 	"io"
 	"net"
 	"net/url"
-	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -282,13 +281,11 @@ func (scanner *Scanner) Init(flags zgrab2.ScanFlags) error {
 // GetProducts returns nmap matched products.
 func (scanner *Scanner) GetProducts(i interface{}) interface{} {
 
-	if sr, ok := i.(*Results); ok && sr != nil {
+	if sr, ok := i.(*Results); ok && sr != nil && len(sr.Banner) > 0 {
 		sr.Products, _ = scanner.productMatchers.ExtractInfoFromBytes([]byte(sr.Banner))
 		return sr
-	} else {
-		log.Infof("type does not match, expected %s, got type: %s , value: %+v", "*http.Result", reflect.TypeOf(i), i)
-		return i
 	}
+	return i
 }
 
 // InitPerSender does nothing in this module.

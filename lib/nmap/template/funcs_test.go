@@ -4,8 +4,8 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/GRbit/go-pcre"
 	"github.com/stretchr/testify/require"
+	pcre "github.com/zmap/zgrab2/lib/pcre"
 )
 
 var itoa = strconv.Itoa

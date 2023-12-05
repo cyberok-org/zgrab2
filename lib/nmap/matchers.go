@@ -18,7 +18,6 @@ func (ms *Matchers) Load(in io.Reader) error {
 	if err != nil {
 		return err
 	}
-
 	var matchers Matchers
 	for _, probe := range probes {
 		for _, match := range probe.Matches {

@@ -102,7 +102,7 @@ func (m *Module) NewScanner() zgrab2.Scanner {
 // GetProducts returns nmap matched products.
 func (scanner *Scanner) GetProducts(i interface{}) interface{} {
 
-	if sr, ok := i.(*ScanResults); ok && sr != nil {
+	if sr, ok := i.(*ScanResults); ok && sr != nil && len(sr.Banner) > 0 {
 		sr.Products, _ = scanner.productMatchers.ExtractInfoFromBytes([]byte(sr.Banner))
 		return sr
 	} else {

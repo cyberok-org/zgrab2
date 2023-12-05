@@ -72,7 +72,7 @@ func intoUTF8(input []byte) string {
 			input = input[1:]
 		}
 	}
-	return string(runes)
+	return string(input)
 }
 
 func intoRunes2(input []byte) []rune {
@@ -94,7 +94,7 @@ type MatchResult struct {
 	err   error
 }
 
-func (r MatchResult) Found() bool { return r.match != nil && r.err == nil }
+func (r MatchResult) Found() bool { return r.match != nil && r.err == nil && r.match.Matches }
 func (r MatchResult) Err() error  { return r.err }
 
 func (r MatchResult) Render(tmpl Info[Template]) Info[string] {
