@@ -21,16 +21,14 @@ import (
 // This may include {TIMESTAMP} or {NANOS}, which should be replaced using
 // getFormattedFile().
 func getMemProfileFile() string {
-	return "mem-{TIMESTAMP}-{NANOS}.txt"
-	//return os.Getenv("ZGRAB2_MEMPROFILE")
+	return os.Getenv("ZGRAB2_MEMPROFILE")
 }
 
 // Get the value of the ZGRAB2_CPUPROFILE variable (or the empty string).
 // This may include {TIMESTAMP} or {NANOS}, which should be replaced using
 // getFormattedFile().
 func getCPUProfileFile() string {
-	return "cpu-{TIMESTAMP}-{NANOS}.txt"
-	//return os.Getenv("ZGRAB2_CPUPROFILE")
+	return os.Getenv("ZGRAB2_CPUPROFILE")
 }
 
 // Replace instances in formatString of {TIMESTAMP} with when formatted as
