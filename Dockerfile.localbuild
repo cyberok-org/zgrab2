@@ -1,0 +1,25 @@
+FROM --platform=linux/amd64 golang:1.21.4-alpine as build
+
+# TODO: add all necessary dependencies here. gcc and build base are requred for cgo. 
+# build base in an analog of build_eccentials for alpine (change if you goig to use other base image) 
+RUN apk add --no-cache gcc build-base make pcre-dev
+
+ENV CGO_ENABLED 1
+ENV GOOS linux
+ENV GOARCH=amd64
+
+WORKDIR /build
+
+# Copy and cache deps
+COPY go.mod go.sum ./
+RUN go mod download && go mod verify
+
+COPY . .
+
+RUN go build -ldflags="-extldflags=-static" -o zgrab2-cok /build/cmd/zgrab2/main.go
+
+FROM scratch AS to_host
+COPY --from=build /build/zgrab2-cok .
+
+# use cmd: docker buildx build -f Dockerfile.localbuild -o out .
+# to build this docker file. in this case all artifacts will be copied to ./out folder
