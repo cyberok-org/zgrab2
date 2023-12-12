@@ -96,10 +96,12 @@ func ZGrab2Main() {
 	defer stopCPUProfile()
 	defer dumpHeapProfile()
 
-	log.SetFormatter(&log.TextFormatter{
-		DisableColors: true,
-		FullTimestamp: true,
-	})
+	// log.SetFormatter(&log.TextFormatter{
+	// 	DisableColors: true,
+	// 	FullTimestamp: true,
+	// })
+
+	log.SetFormatter(&log.JSONFormatter{DisableHTMLEscape: true, PrettyPrint: true, DisableTimestamp: true})
 
 	_, modType, flag, err := zgrab2.ParseCommandLine(os.Args[1:])
 
@@ -166,7 +168,7 @@ func ZGrab2Main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
-		t := time.NewTicker(time.Minute * 1)
+		t := time.NewTicker(time.Minute * 5)
 		for {
 			select {
 			case <-t.C:

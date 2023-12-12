@@ -88,7 +88,7 @@ func (scanner *Scanner) Init(flags zgrab2.ScanFlags) error {
 func (scanner *Scanner) GetProducts(i interface{}) interface{} {
 	if sr, ok := i.(*TelnetLog); ok && sr != nil {
 
-		sr.Products, _ = scanner.productMatchers.ExtractInfoFromBytes([]byte(sr.Banner))
+		sr.Products = scanner.productMatchers.ExtractInfoFromBytes([]byte(sr.Banner))
 		return sr
 	} else {
 		log.Infof("type does not match, expected %s, got type: %s , value: %+v", "*TelnetLog", reflect.TypeOf(i), i)

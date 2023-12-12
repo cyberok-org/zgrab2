@@ -79,7 +79,7 @@ func (s *SSHScanner) Init(flags zgrab2.ScanFlags) error {
 // GetProducts returns ScanResponse with matched products.
 func (scanner *SSHScanner) GetProducts(i interface{}) interface{} {
 	if sr, ok := i.(*ssh.HandshakeLog); ok && sr != nil {
-		sr.Products, _ = scanner.productMatchers.ExtractInfoFromBytes([]byte(sr.Banner))
+		sr.Products = scanner.productMatchers.ExtractInfoFromBytes([]byte(sr.Banner))
 		return sr
 	} else {
 		log.Infof("type does not match, expected %s, got type: %s , value: %+v", "*ssh.HandshakeLog", reflect.TypeOf(i), i)

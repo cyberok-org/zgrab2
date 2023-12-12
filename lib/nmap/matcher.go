@@ -1,6 +1,7 @@
 package nmap
 
 import (
+	"math"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -8,12 +9,11 @@ import (
 	"github.com/dlclark/regexp2"
 )
 
-var MatchTimeout = time.Second
-
 type Matcher struct {
 	Protocol Protocol
 	Probe    string
 	Service  string
+	App      string
 	Info[Template]
 	Soft bool
 	re   *regexp2.Regexp
@@ -25,17 +25,20 @@ func MakeMatcher(probe ServiceProbe, match Match) (*Matcher, error) {
 		opts |= regexp2.IgnoreCase
 	}
 	opts |= regexp2.Singleline
+
 	re, err := regexp2.Compile(match.Regex, opts)
 	if err != nil {
 		return nil, err
 	}
-	re.MatchTimeout = time.Second
+
+	re.MatchTimeout = time.Duration(math.MaxInt64)
 
 	return &Matcher{
 		Protocol: probe.Protocol,
 		Probe:    probe.Name,
 		Service:  match.Service,
 		Info:     match.Info,
+		App:      match.Service,
 		Soft:     match.Soft,
 		re:       re,
 	}, err

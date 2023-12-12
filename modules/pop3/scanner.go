@@ -147,7 +147,7 @@ func (scanner *Scanner) Init(flags zgrab2.ScanFlags) error {
 // GetProducts returns nmap matched products.
 func (scanner *Scanner) GetProducts(i interface{}) interface{} {
 	if sr, ok := i.(*ScanResults); ok && sr != nil {
-		sr.Products, _ = scanner.productMatchers.ExtractInfoFromBytes([]byte(sr.Banner))
+		sr.Products = scanner.productMatchers.ExtractInfoFromBytes([]byte(sr.Banner))
 		return sr
 	} else {
 		log.Infof("type does not match, expected %s, got type: %s , value: %+v", "*pop3.ScanResults", reflect.TypeOf(i), i)

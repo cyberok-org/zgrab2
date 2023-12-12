@@ -1,6 +1,7 @@
 package nmap
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"time"
@@ -57,6 +58,13 @@ func (ms Matchers) FilterGlob(pattern string) Matchers {
 	})
 }
 
+type RegexStat struct {
+	Regex    string        `json:"regex"`
+	Duration time.Duration `json:"time"`
+	Service  string        `json:"service"`
+	Error    error         `json:"error"`
+}
+
 type ExtractResult struct {
 	Probe     string `json:"probe"`
 	Service   string `json:"service"`
@@ -65,29 +73,36 @@ type ExtractResult struct {
 	Info[string]
 }
 
-func (ms Matchers) ExtractInfoFromBytes(input []byte) ([]ExtractResult, int, int, int, error) {
-	// var result []ExtractResult
-	// var errs []error
-	// var matchersTotal int
-	// var matchersPassed int
-	// var matchersError int
-	// return result, matchersTotal, matchersPassed, matchersError, errors.Join(errs...)
+func (ms Matchers) ExtractInfoFromBytes(input []byte) []ExtractResult {
 	return ms.ExtractInfoFromRunes(intoRunes(input))
 }
 
-func (ms Matchers) ExtractInfoFromRunes(input []rune) ([]ExtractResult, int, int, int, error) {
+func (ms Matchers) ExtractInfoFromRunes(input []rune) []ExtractResult {
 	var result []ExtractResult
-	//var errs []error
+	var stats []RegexStat
+
 	var matchersTotal int
 	var matchersPassed int
 	var matchersError int
 	t1 := time.Now().UTC()
-	for _, m := range ms {
 
+	for _, m := range ms {
+		ts := time.Now().UTC()
 		r := m.MatchRunes(input)
+		dr := time.Now().UTC().Sub(ts)
+
+		if dr > time.Duration(time.Millisecond*200) {
+			stats = append(stats, RegexStat{
+				Regex:    m.re.String(),
+				Service:  m.App,
+				Error:    r.Err(),
+				Duration: time.Duration(dr.Milliseconds()),
+			})
+		}
+
 		matchersTotal++
 		if err := r.Err(); err != nil {
-			//errs = append(errs, err)
+			fmt.Println("ERROR: ", err)
 			matchersError++
 			continue
 		}
@@ -102,9 +117,26 @@ func (ms Matchers) ExtractInfoFromRunes(input []rune) ([]ExtractResult, int, int
 			matchersPassed++
 		}
 	}
-	log.Infof("STAT total: %d, PASSED:  %d, ERROR: %d, time: %s, input size: %d",
-		matchersTotal, matchersPassed, matchersError, time.Now().UTC().Sub(t1), len(input))
-	return result, matchersTotal, matchersPassed, matchersError, nil //errors.Join(errs...)
+
+	if len(stats) > 0 {
+
+		lf := log.WithFields(log.Fields{
+			"banner":   string(input),
+			"tolal":    matchersTotal,
+			"matched":  matchersPassed,
+			"errors":   matchersError,
+			"duration": time.Duration(time.Now().UTC().Sub(t1).Milliseconds()),
+			"length":   len(input),
+			"slow":     stats,
+		})
+		lf.Info("-")
+	}
+
+	// log.Infof("STAT total: %d, PASSED:  %d, ERROR: %d, time: %s, input size: %d",
+	// 	matchersTotal, matchersPassed, matchersError, time.Now().UTC().Sub(t1), len(input))
+
+	return result
+
 }
 
 var globalMatchers Matchers

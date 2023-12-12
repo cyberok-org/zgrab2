@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net"
 	"sync"
-	"time"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/zmap/zgrab2/lib/output"
@@ -212,7 +211,7 @@ func matchProducts(g *Grab) []byte {
 func grabTarget2(input ScanTarget, m *Monitor) *Grab {
 	moduleResult := make(map[string]ScanResponse)
 	for _, scannerName := range orderedScanners {
-		t1 := time.Now().UTC()
+		//t1 := time.Now().UTC()
 		scanner := scanners[scannerName]
 		trigger := (*scanner).GetTrigger()
 		if input.Tag != trigger {
@@ -228,8 +227,8 @@ func grabTarget2(input ScanTarget, m *Monitor) *Grab {
 
 		name, res := RunScanner(*scanner, m, input)
 
-		log.Infof("SCAN %s, tog: %s, scan: %s, time: %s",
-			input.IP.String(), input.Tag, scannerName, time.Now().UTC().Sub(t1))
+		// log.Infof("SCAN %s, tog: %s, scan: %s, time: %s",
+		// 	input.IP.String(), input.Tag, scannerName, time.Now().UTC().Sub(t1))
 
 		moduleResult[name] = res
 		if res.Error != nil && !config.Multiple.ContinueOnError {
@@ -247,7 +246,7 @@ func Process(mon *Monitor) {
 	workers := config.Senders
 	matchers := config.NmapMatchers
 	processQueue := make(chan ScanTarget, workers*4)
-	matchersQueue := make(chan *Grab, matchers*4)
+	matchersQueue := make(chan *Grab, matchers*1000)
 	outputQueue := make(chan []byte, workers*4)
 
 	//Create wait groups
@@ -287,13 +286,10 @@ func Process(mon *Monitor) {
 			for obj := range processQueue {
 				for run := uint(0); run < uint(config.ConnectionsPerHost); run++ {
 					//log.Infof("ASK: %+v", obj)
-					t1 := time.Now().UTC()
+					//t1 := time.Now().UTC()
 					result := grabTarget2(obj, mon)
-
-					log.Infof("MATCHERS QUERY %d", len(matchersQueue))
-
 					matchersQueue <- result
-					log.Infof("RECV: %+v, TIME: %s", obj, time.Duration(time.Now().UTC().Sub(t1)))
+					//log.Infof("RECV: %+v, TIME: %s", obj, time.Duration(time.Now().UTC().Sub(t1)))
 				}
 			}
 			workerDone.Done()
