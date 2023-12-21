@@ -115,10 +115,12 @@ type Module struct {
 
 // Scanner is the implementation of the zgrab2.Scanner interface.
 type Scanner struct {
-	config                *Flags
-	customHeaders         map[string]string
-	decodedHashFn         func([]byte) string
+	config        *Flags
+	customHeaders map[string]string
+	decodedHashFn func([]byte) string
+	// TODO: remove
 	productMatchers       nmap.Matchers
+	productMatcher        string
 	tagsToFindInHTML      map[string]struct{}
 	htmlAttributesParsers map[string]attributesParser
 }
@@ -244,7 +246,9 @@ func (scanner *Scanner) Init(flags zgrab2.ScanFlags) error {
 		log.Panicf("Invalid ComputeDecodedBodyHashAlgorithm choice made it through zflags: %s", scanner.config.ComputeDecodedBodyHashAlgorithm)
 	}
 
-	scanner.productMatchers = nmap.SelectMatchersGlob(fl.ProductMatchers)
+	// TODO: remove
+	//scanner.productMatchers = nmap.SelectMatchersGlob(fl.ProductMatchers)
+
 	log.Infof("scanner %s inited, matchers count: %d", scanner.GetName(), len(scanner.productMatchers))
 
 	scanner.tagsToFindInHTML = map[string]struct{}{
@@ -279,11 +283,16 @@ func (scanner *Scanner) Init(flags zgrab2.ScanFlags) error {
 	return nil
 }
 
+// GetMatchers returns product matchers string
+func (scanner *Scanner) GetMatchers() string {
+	return scanner.config.ProductMatchers
+}
+
 // GetProducts returns nmap matched products.
-func (scanner *Scanner) GetProducts(i interface{}) interface{} {
+func (scanner *Scanner) GetProducts(i interface{}, matchers nmap.Matchers) interface{} {
 
 	if sr, ok := i.(*Results); ok && sr != nil {
-		sr.Products = scanner.productMatchers.ExtractInfoFromBytes([]byte(sr.Banner))
+		sr.Products = matchers.ExtractInfoFromBytes([]byte(sr.Banner))
 		return sr
 	} else {
 		log.Infof("type does not match, expected %s, got type: %s , value: %+v", "*http.Result", reflect.TypeOf(i), i)

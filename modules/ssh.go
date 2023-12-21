@@ -71,15 +71,19 @@ func (f *SSHFlags) Help() string {
 func (s *SSHScanner) Init(flags zgrab2.ScanFlags) error {
 	f, _ := flags.(*SSHFlags)
 	s.config = f
-	s.productMatchers = nmap.SelectMatchersGlob(f.ProductMatchers)
-	log.Infof("scanner %s inited, matchers count: %d", s.GetName(), len(s.productMatchers))
+	//s.productMatchers = nmap.SelectMatchersGlob(f.ProductMatchers)
+	//log.Infof("scanner %s inited, matchers count: %d", s.GetName(), len(s.productMatchers))
 	return nil
 }
 
+func (scanner *SSHScanner) GetMatchers() string {
+	return scanner.config.ProductMatchers
+}
+
 // GetProducts returns ScanResponse with matched products.
-func (scanner *SSHScanner) GetProducts(i interface{}) interface{} {
+func (scanner *SSHScanner) GetProducts(i interface{}, matchers nmap.Matchers) interface{} {
 	if sr, ok := i.(*ssh.HandshakeLog); ok && sr != nil {
-		sr.Products = scanner.productMatchers.ExtractInfoFromBytes([]byte(sr.Banner))
+		sr.Products = matchers.ExtractInfoFromBytes([]byte(sr.Banner))
 		return sr
 	} else {
 		log.Infof("type does not match, expected %s, got type: %s , value: %+v", "*ssh.HandshakeLog", reflect.TypeOf(i), i)
@@ -138,18 +142,6 @@ func (s *SSHScanner) Scan(t zgrab2.ScanTarget) (zgrab2.ScanStatus, interface{}, 
 	_, err := ssh.Dial("tcp", rhost, sshConfig)
 	// TODO FIXME: Distinguish error types
 	status := zgrab2.TryGetScanStatus(err)
-
-	// var mTotal int
-	// var mPassed int
-	// var mError int
-	// t1 := time.Now().UTC()
-
-	// data.Products, mTotal, mTotal, mError, _ = s.productMatchers.ExtractInfoFromBytes([]byte(data.RawBanner))
-
-	// log.Infof("target: %s; tag: %s banner size %d, took %s, match total: %d, match passed: %d, match error: %d",
-	// 	t.IP.String(), t.Tag, len(data.RawBanner), time.Now().UTC().Sub(t1), mTotal, mPassed, mError)
-
-	//data.Products, _ = s.productMatchers.ExtractInfoFromBytes([]byte(data.RawBanner))
 
 	return status, data, err
 }

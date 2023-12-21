@@ -2,7 +2,6 @@ package nmap
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"time"
 
@@ -13,12 +12,7 @@ import (
 
 type Matchers []*Matcher
 
-func (ms *Matchers) Load(in io.Reader) error {
-	probes, err := ParseServiceProbes(in)
-	if err != nil {
-		return err
-	}
-
+func (ms *Matchers) Load(probes []ServiceProbe) error {
 	var matchers Matchers
 	for _, probe := range probes {
 		for _, match := range probe.Matches {
@@ -29,8 +23,6 @@ func (ms *Matchers) Load(in io.Reader) error {
 			matchers = append(matchers, m)
 		}
 	}
-
-	log.Infof("Loaded %d matchers", len(matchers))
 	*ms = matchers
 	return nil
 }
@@ -119,7 +111,6 @@ func (ms Matchers) ExtractInfoFromRunes(input []rune) []ExtractResult {
 	}
 
 	if len(stats) > 0 {
-
 		lf := log.WithFields(log.Fields{
 			"banner":   string(input),
 			"tolal":    matchersTotal,
@@ -131,15 +122,12 @@ func (ms Matchers) ExtractInfoFromRunes(input []rune) []ExtractResult {
 		})
 		lf.Info("-")
 	}
-
-	// log.Infof("STAT total: %d, PASSED:  %d, ERROR: %d, time: %s, input size: %d",
-	// 	matchersTotal, matchersPassed, matchersError, time.Now().UTC().Sub(t1), len(input))
-
 	return result
-
 }
 
 var globalMatchers Matchers
+
+var probes []ServiceProbe
 
 func LoadServiceProbes(filename string) error {
 	f, err := os.Open(filename)
@@ -148,13 +136,23 @@ func LoadServiceProbes(filename string) error {
 	}
 	defer f.Close()
 
-	return globalMatchers.Load(f)
+	probes, err = ParseServiceProbes(f)
+	return err
+	//return globalMatchers.Load(f)
 }
 
-func SelectMatchers(filter func(*Matcher) bool) Matchers {
-	return globalMatchers.Filter(filter)
+func MakeMatchers() (Matchers, error) {
+	var matchers Matchers
+	if err := matchers.Load(probes); err != nil {
+		return nil, err
+	}
+	return matchers, nil
 }
 
-func SelectMatchersGlob(pattern string) Matchers {
-	return globalMatchers.FilterGlob(pattern)
-}
+// func SelectMatchers(filter func(*Matcher) bool) Matchers {
+// 	return globalMatchers.Filter(filter)
+// }
+
+// func SelectMatchersGlob(pattern string) Matchers {
+// 	return globalMatchers.FilterGlob(pattern)
+// }

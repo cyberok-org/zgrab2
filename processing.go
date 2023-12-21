@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	log "github.com/sirupsen/logrus"
+	"github.com/zmap/zgrab2/lib/nmap"
 	"github.com/zmap/zgrab2/lib/output"
 )
 
@@ -24,6 +25,49 @@ type ScanTarget struct {
 	Domain string
 	Tag    string
 	Port   *uint
+}
+
+type ProductMatcher struct {
+	matcherMap map[string]nmap.Matchers
+}
+
+func (pm *ProductMatcher) Init() error {
+	matchers, err := nmap.MakeMatchers()
+	pm.matcherMap = make(map[string]nmap.Matchers)
+	if err != nil {
+		return err
+	}
+
+	for _, scannerName := range orderedScanners {
+		scanner := scanners[scannerName]
+		pm.matcherMap[scannerName] = matchers.FilterGlob((*scanner).GetMatchers())
+	}
+	return nil
+}
+
+func (pm *ProductMatcher) MatchProducts(g *Grab) *Grab {
+	for _, scannerName := range orderedScanners {
+		scanner := scanners[scannerName]
+		trigger := (*scanner).GetTrigger()
+
+		if g.Tag != trigger {
+			continue
+		}
+
+		matchers, ok := pm.matcherMap[scannerName]
+		if !ok {
+			return g
+		}
+
+		if pr, ok := g.Data[scannerName]; ok {
+			if pr.Result != nil {
+				(*scanner).GetProducts(pr.Result, matchers)
+			}
+			return g
+		}
+
+	}
+	return g
 }
 
 func (target ScanTarget) String() string {
@@ -187,26 +231,6 @@ func grabTarget(input ScanTarget, m *Monitor) []byte {
 	return result
 }
 
-func matchProducts(g *Grab) []byte {
-	for _, scannerName := range orderedScanners {
-		scanner := scanners[scannerName]
-		trigger := (*scanner).GetTrigger()
-		if g.Tag != trigger {
-			continue
-		}
-		if pr, ok := g.Data[scannerName]; ok {
-			if pr.Result != nil {
-				(*scanner).GetProducts(pr.Result)
-			}
-		}
-	}
-	result, err := EncodeGrab(g, includeDebugOutput())
-	if err != nil {
-		log.Errorf("unable to marshal data: %s", err)
-	}
-	return result
-}
-
 // grabTarget calls handler for each action
 func grabTarget2(input ScanTarget, m *Monitor) *Grab {
 	moduleResult := make(map[string]ScanResponse)
@@ -253,20 +277,48 @@ func Process(mon *Monitor) {
 	var workerDone sync.WaitGroup
 	var outputDone sync.WaitGroup
 	var matcherDone sync.WaitGroup
+	var compileDone sync.WaitGroup
 	workerDone.Add(int(workers))
 	matcherDone.Add(int(matchers))
+	compileDone.Add(int(matchers))
 	outputDone.Add(1)
 
+	kk := []ProductMatcher{}
+
+	for i := 0; i < 50; i++ {
+		matcher := ProductMatcher{}
+		matcher.Init()
+		kk = append(kk, matcher)
+	}
 	// Start nmap matchers goroutine
+
 	for i := 0; i < matchers; i++ {
-		go func() {
+
+		go func(matcher ProductMatcher) {
+
+			compileDone.Done()
+			log.Info("matcher created")
 			for grab := range matchersQueue {
-				result := matchProducts(grab)
+
+				//t1 := time.Now().UTC()
+				g := matcher.MatchProducts(grab)
+				//d := time.Now().UTC().Sub(t1)
+
+				//log.Infof("took %s to match\n", d)
+
+				result, err := EncodeGrab(g, includeDebugOutput())
+				if err != nil {
+					log.Errorf("unable to marshal data: %s", err)
+				}
 				outputQueue <- result
 			}
 			matcherDone.Done()
-		}()
+		}(kk[i%50])
 	}
+
+	compileDone.Wait()
+
+	log.Info("all matchers runned")
 
 	// Start the output encoder
 	go func() {
@@ -285,11 +337,8 @@ func Process(mon *Monitor) {
 			}
 			for obj := range processQueue {
 				for run := uint(0); run < uint(config.ConnectionsPerHost); run++ {
-					//log.Infof("ASK: %+v", obj)
-					//t1 := time.Now().UTC()
 					result := grabTarget2(obj, mon)
 					matchersQueue <- result
-					//log.Infof("RECV: %+v, TIME: %s", obj, time.Duration(time.Now().UTC().Sub(t1)))
 				}
 			}
 			workerDone.Done()

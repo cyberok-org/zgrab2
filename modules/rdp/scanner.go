@@ -54,15 +54,19 @@ func (flags *Flags) Help() string {
 func (scanner *Scanner) Init(flags zgrab2.ScanFlags) error {
 	f, _ := flags.(*Flags)
 	scanner.config = f
-	scanner.productMatchers = nmap.SelectMatchersGlob(f.ProductMatchers)
+	//scanner.productMatchers = nmap.SelectMatchersGlob(f.ProductMatchers)
 	log.Infof("scanner %s inited, matchers count: %d", scanner.GetName(), len(scanner.productMatchers))
 	return nil
 }
 
+func (scanner *Scanner) GetMatchers() string {
+	return scanner.config.ProductMatchers
+}
+
 // GetProducts returns nmap matched products.
-func (scanner *Scanner) GetProducts(i interface{}) interface{} {
+func (scanner *Scanner) GetProducts(i interface{}, matchers nmap.Matchers) interface{} {
 	if sr, ok := i.(*ScanResults); ok && sr != nil {
-		sr.Products = scanner.productMatchers.ExtractInfoFromBytes([]byte(sr.Banner))
+		sr.Products = matchers.ExtractInfoFromBytes([]byte(sr.Banner))
 		return sr
 	} else {
 		log.Infof("type does not match, expected %s, got type: %s , value: %+v", "*rdp.ScanResults", reflect.TypeOf(i), i)
@@ -112,18 +116,6 @@ func (scanner *Scanner) Scan(target zgrab2.ScanTarget) (zgrab2.ScanStatus, inter
 	}
 
 	result := ScanResults{Banner: banner}
-
-	// var mTotal int
-	// var mPassed int
-	// var mError int
-	// t1 := time.Now().UTC()
-
-	// result.Products, mTotal, mTotal, mError, _ = scanner.productMatchers.ExtractInfoFromBytes(banner)
-
-	// log.Infof("target: %s; port: %s banner size %d, took %s, match total: %d, match passed: %d, match error: %d",
-	// 	target.IP.String(), target.Tag, len(banner), time.Now().UTC().Sub(t1), mTotal, mPassed, mError)
-
-	//	result.Products, _ = scanner.productMatchers.ExtractInfoFromBytes(banner)
 
 	answer := newFirstAnswer(banner)
 	if !answer.IsRDP {

@@ -19,6 +19,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"github.com/zmap/zgrab2"
+	"github.com/zmap/zgrab2/lib/nmap"
 )
 
 const (
@@ -305,8 +306,12 @@ func (s *Scanner) Init(flags zgrab2.ScanFlags) error {
 	return nil
 }
 
+func (scanner *Scanner) GetMatchers() string {
+	return ""
+}
+
 // GetProducts returns nmap matched products.
-func (scanner *Scanner) GetProducts(i interface{}) interface{} {
+func (scanner *Scanner) GetProducts(i interface{}, matchers nmap.Matchers) interface{} {
 	return i
 }
 

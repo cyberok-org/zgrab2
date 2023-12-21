@@ -135,8 +135,12 @@ func (module *Module) NewScanner() zgrab2.Scanner {
 	return new(Scanner)
 }
 
+func (scanner *Scanner) GetMatchers() string {
+	return scanner.config.ProductMatchers
+}
+
 // GetProducts returns nmap matched products.
-func (scanner *Scanner) GetProducts(i interface{}) interface{} {
+func (scanner *Scanner) GetProducts(i interface{}, matchers nmap.Matchers) interface{} {
 	if sr, ok := i.(*ScanResults); ok && sr != nil {
 		sr.Products = scanner.productMatchers.ExtractInfoFromBytes([]byte(sr.Banner))
 		return sr
@@ -181,7 +185,7 @@ func (flags *Flags) Help() string {
 func (scanner *Scanner) Init(flags zgrab2.ScanFlags) error {
 	f, _ := flags.(*Flags)
 	scanner.config = f
-	scanner.productMatchers = nmap.SelectMatchersGlob(f.ProductMatchers)
+	//scanner.productMatchers = nmap.SelectMatchersGlob(f.ProductMatchers)
 	log.Infof("scanner %s inited, matchers count: %d", scanner.GetName(), len(scanner.productMatchers))
 	return nil
 }
