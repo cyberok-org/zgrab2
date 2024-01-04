@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"os"
 	"sync"
 
 	log "github.com/sirupsen/logrus"
@@ -268,55 +269,14 @@ func grabTarget2(input ScanTarget, m *Monitor) *Grab {
 // Process sets up an output encoder, input reader, and starts grab workers.
 func Process(mon *Monitor) {
 	workers := config.Senders
-	matchers := config.NmapMatchers
 	processQueue := make(chan ScanTarget, workers*4)
-	matchersQueue := make(chan *Grab, matchers*1000)
 	outputQueue := make(chan []byte, workers*4)
 
 	//Create wait groups
 	var workerDone sync.WaitGroup
 	var outputDone sync.WaitGroup
-	var matcherDone sync.WaitGroup
-	var compileDone sync.WaitGroup
 	workerDone.Add(int(workers))
-	matcherDone.Add(int(matchers))
-	compileDone.Add(int(matchers))
 	outputDone.Add(1)
-
-	kk := []ProductMatcher{}
-
-	for i := 0; i < 50; i++ {
-		matcher := ProductMatcher{}
-		matcher.Init()
-		kk = append(kk, matcher)
-	}
-	// Start nmap matchers goroutine
-
-	for i := 0; i < matchers; i++ {
-
-		go func(matcher ProductMatcher) {
-
-			compileDone.Done()
-			log.Info("matcher created")
-			for grab := range matchersQueue {
-
-				//t1 := time.Now().UTC()
-				g := matcher.MatchProducts(grab)
-				//d := time.Now().UTC().Sub(t1)
-
-				//log.Infof("took %s to match\n", d)
-
-				result, err := EncodeGrab(g, includeDebugOutput())
-				if err != nil {
-					log.Errorf("unable to marshal data: %s", err)
-				}
-				outputQueue <- result
-			}
-			matcherDone.Done()
-		}(kk[i%50])
-	}
-
-	compileDone.Wait()
 
 	log.Info("all matchers runned")
 
@@ -338,7 +298,11 @@ func Process(mon *Monitor) {
 			for obj := range processQueue {
 				for run := uint(0); run < uint(config.ConnectionsPerHost); run++ {
 					result := grabTarget2(obj, mon)
-					matchersQueue <- result
+					data, err := EncodeGrab(result, includeDebugOutput())
+					if err != nil {
+						log.Errorf("unable to marshal data: %s", err)
+					}
+					outputQueue <- data
 				}
 			}
 			workerDone.Done()
@@ -349,8 +313,81 @@ func Process(mon *Monitor) {
 	}
 	close(processQueue)
 	workerDone.Wait()
+	close(outputQueue)
+	outputDone.Wait()
+	MatchProducts()
+}
+
+func MatchProducts() {
+	matchers := config.NmapMatchers
+	matchersQueue := make(chan *Grab, matchers*100)
+	outputQueue := make(chan []byte, matchers*100)
+
+	//Create wait groups
+	var outputDone sync.WaitGroup
+	var matcherDone sync.WaitGroup
+	var compileDone sync.WaitGroup
+
+	matcherDone.Add(int(matchers))
+	compileDone.Add(int(matchers))
+	outputDone.Add(1)
+
+	// Start nmap matchers goroutine
+	for i := 0; i < matchers; i++ {
+		go func() {
+			matcher := ProductMatcher{}
+			matcher.Init()
+			compileDone.Done()
+			for grab := range matchersQueue {
+				//t1 := time.Now().UTC()
+				g := matcher.MatchProducts(grab)
+				//d := time.Now().UTC().Sub(t1)
+				//log.Infof("took %s to match\n", d)
+
+				result, err := EncodeGrab(g, includeDebugOutput())
+				if err != nil {
+					log.Errorf("unable to marshal data: %s", err)
+				}
+				outputQueue <- result
+			}
+			matcherDone.Done()
+		}()
+	}
+	compileDone.Wait()
+	log.Info("all matchers runned")
+
+	// Start the output encoder
+	go func() {
+		defer outputDone.Done()
+		if err := config.outputResults(outputQueue); err != nil {
+			log.Fatal(err)
+		}
+	}()
+
+	//Start all the workers
+	if err := readBanners(matchersQueue); err != nil {
+		log.Fatal(err)
+	}
+
 	close(matchersQueue)
 	matcherDone.Wait()
 	close(outputQueue)
 	outputDone.Wait()
+}
+
+func readBanners(ch <-chan *Grab) error {
+	return nil
+}
+
+func prepOutput() {
+	if config.OutputFileName == "-" {
+		config.outputFile = os.Stdout
+	} else {
+		var err error
+		if config.outputFile, err = os.Create(config.OutputFileName); err != nil {
+			log.Fatal(err)
+		}
+	}
+	outputFunc := OutputResultsWriterFunc(config.outputFile)
+	SetOutputFunc(outputFunc)
 }
