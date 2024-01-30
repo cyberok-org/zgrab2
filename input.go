@@ -1,7 +1,9 @@
 package zgrab2
 
 import (
+	"bufio"
 	"encoding/csv"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net"
@@ -127,6 +129,19 @@ func GetTargetsCSV(source io.Reader, ch chan<- ScanTarget) error {
 		rTotal++
 	}
 	return nil
+}
+
+func GetBanners(source io.Reader, ch chan<- Grab) error {
+	s := bufio.NewScanner(source)
+	for s.Scan() {
+		target := Grab{}
+		err := json.Unmarshal(s.Bytes(), &target)
+		if err != nil {
+			continue
+		}
+		ch <- target
+	}
+	return s.Err()
 }
 
 // InputTargetsFunc is a function type for target input functions.
