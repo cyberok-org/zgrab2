@@ -28,20 +28,16 @@ package pop3
 import (
 	"errors"
 	"fmt"
-	"reflect"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/zmap/zgrab2"
-	"github.com/zmap/zgrab2/lib/nmap"
 )
 
 // ScanResults instances are returned by the module's Scan function.
 type ScanResults struct {
 	// Banner is the string sent by the server immediately after connecting.
 	Banner string `json:"banner,omitempty"`
-
-	Products []nmap.ExtractResult `json:"products,omitempty"`
 
 	// NOOP is the server's response to the NOOP command, if one is sent.
 	NOOP string `json:"noop,omitempty"`
@@ -82,8 +78,6 @@ type Flags struct {
 
 	// Verbose indicates that there should be more verbose logging.
 	Verbose bool `long:"verbose" description:"More verbose logging, include debug fields in the scan results"`
-
-	ProductMatchers string `long:"product-matchers" default:"*/pop3" description:"Matchers from nmap-service-probes file used to detect product info. Format: <probe>/<service>[,...] (wildcards supported)."`
 }
 
 // Module implements the zgrab2.Module interface.
@@ -91,8 +85,7 @@ type Module struct{}
 
 // Scanner implements the zgrab2.Scanner interface.
 type Scanner struct {
-	config          *Flags
-	productMatchers nmap.Matchers
+	config *Flags
 }
 
 // RegisterModule registers the zgrab2 module.
@@ -139,24 +132,7 @@ func (flags *Flags) Help() string {
 func (scanner *Scanner) Init(flags zgrab2.ScanFlags) error {
 	f, _ := flags.(*Flags)
 	scanner.config = f
-	//scanner.productMatchers = nmap.SelectMatchersGlob(f.ProductMatchers)
-	log.Infof("scanner %s inited, matchers count: %d", scanner.GetName(), len(scanner.productMatchers))
 	return nil
-}
-
-func (scanner *Scanner) GetMatchers() string {
-	return scanner.config.ProductMatchers
-}
-
-// GetProducts returns nmap matched products.
-func (scanner *Scanner) GetProducts(i interface{}, matchers nmap.Matchers) interface{} {
-	if sr, ok := i.(*ScanResults); ok && sr != nil {
-		sr.Products = matchers.ExtractInfoFromBytes([]byte(sr.Banner))
-		return sr
-	} else {
-		log.Infof("type does not match, expected %s, got type: %s , value: %+v", "*pop3.ScanResults", reflect.TypeOf(i), i)
-		return i
-	}
 }
 
 // InitPerSender initializes the scanner for a given sender.
@@ -248,18 +224,6 @@ func (scanner *Scanner) Scan(target zgrab2.ScanTarget) (zgrab2.ScanStatus, inter
 		return sr, nil, errors.New("Invalid response for POP3")
 	}
 	result.Banner = banner
-
-	// var mTotal int
-	// var mPassed int
-	// var mError int
-	// t1 := time.Now().UTC()
-
-	// result.Products, mTotal, mTotal, mError, _ = scanner.productMatchers.ExtractInfoFromBytes([]byte(banner))
-
-	// log.Infof("target: %s; port: %s banner size %d, took %s, match total: %d, match passed: %d, match error: %d",
-	// 	target.IP.String(), target.Tag, len(banner), time.Now().UTC().Sub(t1), mTotal, mPassed, mError)
-
-	// //result.Products, _ = scanner.productMatchers.ExtractInfoFromBytes([]byte(banner))
 
 	if scanner.config.SendHELP {
 		ret, err := conn.SendCommand("HELP")

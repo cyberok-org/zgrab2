@@ -3,7 +3,6 @@ package modules
 import (
 	log "github.com/sirupsen/logrus"
 	"github.com/zmap/zgrab2"
-	"github.com/zmap/zgrab2/lib/nmap"
 )
 
 type TLSFlags struct {
@@ -54,15 +53,6 @@ func (s *TLSScanner) Init(flags zgrab2.ScanFlags) error {
 	}
 	s.config = f
 	return nil
-}
-
-func (scanner *TLSScanner) GetMatchers() string {
-	return ""
-}
-
-// GetProducts returns nmap matched products.
-func (scanner *TLSScanner) GetProducts(i interface{}, matchers nmap.Matchers) interface{} {
-	return i
 }
 
 func (s *TLSScanner) GetName() string {

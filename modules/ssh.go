@@ -2,13 +2,11 @@ package modules
 
 import (
 	"net"
-	"reflect"
 	"strconv"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/zmap/zgrab2"
-	"github.com/zmap/zgrab2/lib/nmap"
 	"github.com/zmap/zgrab2/lib/ssh"
 )
 
@@ -24,15 +22,13 @@ type SSHFlags struct {
 	GexPreferredBits  uint   `long:"gex-preferred-bits" description:"The preferred number of bits for the DH GEX prime." default:"2048"`
 	HelloOnly         bool   `long:"hello-only" description:"Limit scan to the initial hello message"`
 	Verbose           bool   `long:"verbose" description:"Output additional information, including SSH client properties from the SSH handshake."`
-	ProductMatchers   string `long:"product-matchers" default:"*/ssh" description:"Matchers from nmap-service-probes file used to detect product info. Format: <probe>/<service>[,...] (wildcards supported)."`
 }
 
 type SSHModule struct {
 }
 
 type SSHScanner struct {
-	config          *SSHFlags
-	productMatchers nmap.Matchers
+	config *SSHFlags
 }
 
 func init() {
@@ -71,24 +67,7 @@ func (f *SSHFlags) Help() string {
 func (s *SSHScanner) Init(flags zgrab2.ScanFlags) error {
 	f, _ := flags.(*SSHFlags)
 	s.config = f
-	//s.productMatchers = nmap.SelectMatchersGlob(f.ProductMatchers)
-	//log.Infof("scanner %s inited, matchers count: %d", s.GetName(), len(s.productMatchers))
 	return nil
-}
-
-func (scanner *SSHScanner) GetMatchers() string {
-	return scanner.config.ProductMatchers
-}
-
-// GetProducts returns ScanResponse with matched products.
-func (scanner *SSHScanner) GetProducts(i interface{}, matchers nmap.Matchers) interface{} {
-	if sr, ok := i.(*ssh.HandshakeLog); ok && sr != nil {
-		sr.Products = matchers.ExtractInfoFromBytes([]byte(sr.Banner))
-		return sr
-	} else {
-		log.Infof("type does not match, expected %s, got type: %s , value: %+v", "*ssh.HandshakeLog", reflect.TypeOf(i), i)
-		return i
-	}
 }
 
 func (s *SSHScanner) InitPerSender(senderID int) error {

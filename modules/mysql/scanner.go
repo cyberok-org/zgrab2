@@ -10,7 +10,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/zmap/zgrab2"
 	"github.com/zmap/zgrab2/lib/mysql"
-	"github.com/zmap/zgrab2/lib/nmap"
 )
 
 // ScanResults contains detailed information about the scan.
@@ -164,15 +163,6 @@ func (m *Module) NewFlags() interface{} {
 // NewScanner returns a new Scanner object.
 func (m *Module) NewScanner() zgrab2.Scanner {
 	return new(Scanner)
-}
-
-func (scanner *Scanner) GetMatchers() string {
-	return ""
-}
-
-// GetProducts returns nmap matched products.
-func (scanner *Scanner) GetProducts(i interface{}, matchers nmap.Matchers) interface{} {
-	return i
 }
 
 // Description returns an overview of this module.

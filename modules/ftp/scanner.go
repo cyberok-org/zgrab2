@@ -13,13 +13,11 @@ package ftp
 import (
 	"fmt"
 	"net"
-	"reflect"
 	"regexp"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/zmap/zgrab2"
-	"github.com/zmap/zgrab2/lib/nmap"
 )
 
 // ScanResults is the output of the scan.
@@ -27,8 +25,6 @@ import (
 type ScanResults struct {
 	// Banner is the initial data banner sent by the server.
 	Banner string `json:"banner,omitempty"`
-
-	Products []nmap.ExtractResult `json:"products,omitempty"`
 
 	// AuthTLSResp is the response to the AUTH TLS command.
 	// Only present if the FTPAuthTLS flag is set.
@@ -53,10 +49,9 @@ type Flags struct {
 	zgrab2.BaseFlags
 	zgrab2.TLSFlags
 
-	Verbose         bool   `long:"verbose" description:"More verbose logging, include debug fields in the scan results"`
-	FTPAuthTLS      bool   `long:"authtls" description:"Collect FTPS certificates in addition to FTP banners"`
-	ImplicitTLS     bool   `long:"implicit-tls" description:"Attempt to connect via a TLS wrapped connection"`
-	ProductMatchers string `long:"product-matchers" default:"*/ftp" description:"Matchers from nmap-service-probes file used to detect product info. Format: <probe>/<service>[,...] (wildcards supported)."`
+	Verbose     bool `long:"verbose" description:"More verbose logging, include debug fields in the scan results"`
+	FTPAuthTLS  bool `long:"authtls" description:"Collect FTPS certificates in addition to FTP banners"`
+	ImplicitTLS bool `long:"implicit-tls" description:"Attempt to connect via a TLS wrapped connection"`
 }
 
 // Module implements the zgrab2.Module interface.
@@ -65,8 +60,7 @@ type Module struct{}
 // Scanner implements the zgrab2.Scanner interface, and holds the state
 // for a single scan.
 type Scanner struct {
-	config          *Flags
-	productMatchers nmap.Matchers
+	config *Flags
 }
 
 // Connection holds the state for a single connection to the FTP server.
@@ -99,22 +93,6 @@ func (m *Module) NewScanner() zgrab2.Scanner {
 	return new(Scanner)
 }
 
-func (scanner *Scanner) GetMatchers() string {
-	return scanner.config.ProductMatchers
-}
-
-// GetProducts returns nmap matched products.
-func (scanner *Scanner) GetProducts(i interface{}, matchers nmap.Matchers) interface{} {
-
-	if sr, ok := i.(*ScanResults); ok && sr != nil {
-		sr.Products = matchers.ExtractInfoFromBytes([]byte(sr.Banner))
-		return sr
-	} else {
-		log.Infof("type does not match, expected %s, got type: %s , value: %+v", "*ftp.ScanResults", reflect.TypeOf(i), i)
-		return i
-	}
-}
-
 // Description returns an overview of this module.
 func (m *Module) Description() string {
 	return "Grab an FTP banner"
@@ -143,8 +121,6 @@ func (s *Scanner) Protocol() string {
 func (s *Scanner) Init(flags zgrab2.ScanFlags) error {
 	f, _ := flags.(*Flags)
 	s.config = f
-	//s.productMatchers = nmap.SelectMatchersGlob(f.ProductMatchers)
-	log.Infof("scanner %s inited, matchers count: %d", s.GetName(), len(s.productMatchers))
 	return nil
 
 }
@@ -300,17 +276,6 @@ func (s *Scanner) Scan(t zgrab2.ScanTarget) (status zgrab2.ScanStatus, result in
 	if err != nil {
 		return zgrab2.TryGetScanStatus(err), &ftp.results, err
 	}
-	// var mTotal int
-	// var mPassed int
-	// var mError int
-	// t1 := time.Now().UTC()
-
-	// ftp.results.Products, mTotal, mTotal, mError, _ = s.productMatchers.ExtractInfoFromBytes([]byte(ftp.results.Banner))
-
-	// log.Infof("target: %s; port: %s banner size %d, took %s, match total: %d, match passed: %d, match error: %d",
-	// 	t.IP.String(), t.Tag, len(ftp.results.Banner), time.Now().UTC().Sub(t1), mTotal, mPassed, mError)
-
-	// //ftp.results.Products, _ = s.productMatchers.ExtractInfoFromBytes([]byte(ftp.results.Banner))
 
 	if s.config.FTPAuthTLS && is200Banner {
 		if err := ftp.GetFTPSCertificates(); err != nil {

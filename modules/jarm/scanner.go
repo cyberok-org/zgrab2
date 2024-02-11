@@ -11,7 +11,6 @@ import (
 
 	jarm "github.com/hdm/jarm-go"
 	"github.com/zmap/zgrab2"
-	"github.com/zmap/zgrab2/lib/nmap"
 )
 
 // Flags give the command-line flags for the banner module.
@@ -81,15 +80,6 @@ func (scanner *Scanner) InitPerSender(senderID int) error {
 // NewScanner returns a new Scanner object.
 func (m *Module) NewScanner() zgrab2.Scanner {
 	return new(Scanner)
-}
-
-func (scanner *Scanner) GetMatchers() string {
-	return ""
-}
-
-// GetProducts returns nmap matched products.
-func (scanner *Scanner) GetProducts(i interface{}, matchers nmap.Matchers) interface{} {
-	return i
 }
 
 // Validate validates the flags and returns nil on success.

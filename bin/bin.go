@@ -14,23 +14,20 @@ import (
 	log "github.com/sirupsen/logrus"
 	flags "github.com/zmap/zflags"
 	"github.com/zmap/zgrab2"
-	"github.com/zmap/zgrab2/lib/nmap"
 )
 
 // Get the value of the ZGRAB2_MEMPROFILE variable (or the empty string).
 // This may include {TIMESTAMP} or {NANOS}, which should be replaced using
 // getFormattedFile().
 func getMemProfileFile() string {
-	return "mem-{TIMESTAMP}-{NANOS}.txt"
-	//return os.Getenv("ZGRAB2_MEMPROFILE")
+	return os.Getenv("ZGRAB2_MEMPROFILE")
 }
 
 // Get the value of the ZGRAB2_CPUPROFILE variable (or the empty string).
 // This may include {TIMESTAMP} or {NANOS}, which should be replaced using
 // getFormattedFile().
 func getCPUProfileFile() string {
-	return "cpu-{TIMESTAMP}-{NANOS}.txt"
-	//return os.Getenv("ZGRAB2_CPUPROFILE")
+	return os.Getenv("ZGRAB2_CPUPROFILE")
 }
 
 // Replace instances in formatString of {TIMESTAMP} with when formatted as
@@ -141,29 +138,19 @@ func ZGrab2Main() {
 
 	log.Infof("config loaded:\n%+v", *cfg)
 
-	// Load nmap service probes from a file.
-	if filename := zgrab2.NmapServiceProbes(); filename != "" {
-		if err := nmap.LoadServiceProbes(filename); err != nil {
-			log.Fatalf("load nmap service probes: %v", err)
-		} else {
-			log.Info("nmap probes loaded")
-		}
-	}
-
 	for i, modType := range modTypes {
 		mod := zgrab2.GetModule(modType)
 		f, _ := modFlags[i].(zgrab2.ScanFlags)
 		s := mod.NewScanner()
 		s.Init(f)
 		zgrab2.RegisterScan(s.GetName(), s)
-		//log.Infof("scaner %s, with trigger: %s registered with flags: %+v", s.GetName(), s.GetTrigger(), f)
 	}
 
 	wg := sync.WaitGroup{}
 	monitor := zgrab2.MakeMonitor(1, &wg)
 
 	monitor.Callback = func(_ string) {
-		//dumpHeapProfile()
+		dumpHeapProfile()
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())

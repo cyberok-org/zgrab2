@@ -5,7 +5,6 @@ package smb
 import (
 	log "github.com/sirupsen/logrus"
 	"github.com/zmap/zgrab2"
-	"github.com/zmap/zgrab2/lib/nmap"
 	"github.com/zmap/zgrab2/lib/smb/smb"
 )
 
@@ -71,15 +70,6 @@ func (scanner *Scanner) Init(flags zgrab2.ScanFlags) error {
 	f, _ := flags.(*Flags)
 	scanner.config = f
 	return nil
-}
-
-func (scanner *Scanner) GetMatchers() string {
-	return ""
-}
-
-// GetProducts returns nmap matched products.
-func (scanner *Scanner) GetProducts(i interface{}, matchers nmap.Matchers) interface{} {
-	return i
 }
 
 // InitPerSender initializes the scanner for a given sender.
