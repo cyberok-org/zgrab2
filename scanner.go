@@ -2,8 +2,9 @@ package zgrab2
 
 import (
 	"fmt"
-	"log"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 )
 
 var scanners map[string]*Scanner

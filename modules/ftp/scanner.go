@@ -18,7 +18,6 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"github.com/zmap/zgrab2"
-	"github.com/zmap/zgrab2/lib/nmap"
 )
 
 // ScanResults is the output of the scan.
@@ -26,8 +25,6 @@ import (
 type ScanResults struct {
 	// Banner is the initial data banner sent by the server.
 	Banner string `json:"banner,omitempty"`
-
-	Products []nmap.ExtractResult `json:"products,omitempty"`
 
 	// AuthTLSResp is the response to the AUTH TLS command.
 	// Only present if the FTPAuthTLS flag is set.
@@ -52,10 +49,9 @@ type Flags struct {
 	zgrab2.BaseFlags
 	zgrab2.TLSFlags
 
-	Verbose         bool   `long:"verbose" description:"More verbose logging, include debug fields in the scan results"`
-	FTPAuthTLS      bool   `long:"authtls" description:"Collect FTPS certificates in addition to FTP banners"`
-	ImplicitTLS     bool   `long:"implicit-tls" description:"Attempt to connect via a TLS wrapped connection"`
-	ProductMatchers string `long:"product-matchers" default:"*/ftp" description:"Matchers from nmap-service-probes file used to detect product info. Format: <probe>/<service>[,...] (wildcards supported)."`
+	Verbose     bool `long:"verbose" description:"More verbose logging, include debug fields in the scan results"`
+	FTPAuthTLS  bool `long:"authtls" description:"Collect FTPS certificates in addition to FTP banners"`
+	ImplicitTLS bool `long:"implicit-tls" description:"Attempt to connect via a TLS wrapped connection"`
 }
 
 // Module implements the zgrab2.Module interface.
@@ -64,8 +60,7 @@ type Module struct{}
 // Scanner implements the zgrab2.Scanner interface, and holds the state
 // for a single scan.
 type Scanner struct {
-	config          *Flags
-	productMatchers nmap.Matchers
+	config *Flags
 }
 
 // Connection holds the state for a single connection to the FTP server.
@@ -126,8 +121,8 @@ func (s *Scanner) Protocol() string {
 func (s *Scanner) Init(flags zgrab2.ScanFlags) error {
 	f, _ := flags.(*Flags)
 	s.config = f
-	s.productMatchers = nmap.SelectMatchersGlob(f.ProductMatchers)
 	return nil
+
 }
 
 // InitPerSender does nothing in this module.
@@ -281,8 +276,6 @@ func (s *Scanner) Scan(t zgrab2.ScanTarget) (status zgrab2.ScanStatus, result in
 	if err != nil {
 		return zgrab2.TryGetScanStatus(err), &ftp.results, err
 	}
-
-	ftp.results.Products, _ = s.productMatchers.ExtractInfoFromBytes([]byte(ftp.results.Banner))
 
 	if s.config.FTPAuthTLS && is200Banner {
 		if err := ftp.GetFTPSCertificates(); err != nil {

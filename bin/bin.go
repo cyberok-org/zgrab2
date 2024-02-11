@@ -1,6 +1,7 @@
 package bin
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"runtime/pprof"
@@ -8,13 +9,11 @@ import (
 	"time"
 
 	"fmt"
-	"runtime"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
 	flags "github.com/zmap/zflags"
 	"github.com/zmap/zgrab2"
-	"github.com/zmap/zgrab2/lib/nmap"
 )
 
 // Get the value of the ZGRAB2_MEMPROFILE variable (or the empty string).
@@ -51,7 +50,8 @@ func dumpHeapProfile() {
 		if err != nil {
 			log.Fatal("could not create heap profile: ", err)
 		}
-		runtime.GC()
+		// Disabled by mkn during resolution of #412
+		//runtime.GC()
 		if err := pprof.WriteHeapProfile(f); err != nil {
 			log.Fatal("could not write heap profile: ", err)
 		}
@@ -92,6 +92,14 @@ func ZGrab2Main() {
 	startCPUProfile()
 	defer stopCPUProfile()
 	defer dumpHeapProfile()
+
+	// log.SetFormatter(&log.TextFormatter{
+	// 	DisableColors: true,
+	// 	FullTimestamp: true,
+	// })
+
+	log.SetFormatter(&log.JSONFormatter{DisableHTMLEscape: true, PrettyPrint: true, DisableTimestamp: true})
+
 	_, modType, flag, err := zgrab2.ParseCommandLine(os.Args[1:])
 
 	// Blanked arg is positional arguments
@@ -105,6 +113,8 @@ func ZGrab2Main() {
 		// Didn't output help. Unknown parsing error.
 		log.Fatalf("could not parse flags: %s", err)
 	}
+
+	log.Infof("parsed command line params, modType: %s, flag: %+v ", modType, flag)
 
 	modTypes := []string{modType}
 	modFlags := []any{flag}
@@ -124,12 +134,9 @@ func ZGrab2Main() {
 		}
 	}
 
-	// Load nmap service probes from a file.
-	if filename := zgrab2.NmapServiceProbes(); filename != "" {
-		if err := nmap.LoadServiceProbes(filename); err != nil {
-			log.Fatalf("load nmap service probes: %v", err)
-		}
-	}
+	cfg := zgrab2.GetConfig()
+
+	log.Infof("config loaded:\n%+v", *cfg)
 
 	for i, modType := range modTypes {
 		mod := zgrab2.GetModule(modType)
@@ -141,15 +148,31 @@ func ZGrab2Main() {
 
 	wg := sync.WaitGroup{}
 	monitor := zgrab2.MakeMonitor(1, &wg)
+
 	monitor.Callback = func(_ string) {
 		dumpHeapProfile()
 	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		t := time.NewTicker(time.Minute * 5)
+		for {
+			select {
+			case <-t.C:
+				dumpHeapProfile()
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
 	start := time.Now()
 	log.Infof("started grab at %s", start.Format(time.RFC3339))
 	zgrab2.Process(monitor)
 	end := time.Now()
 	log.Infof("finished grab at %s", end.Format(time.RFC3339))
 	monitor.Stop()
+	cancel()
 	wg.Wait()
 	s := Summary{
 		StatusesPerModule: monitor.GetStatuses(),

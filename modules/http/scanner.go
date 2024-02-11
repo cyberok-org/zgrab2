@@ -33,7 +33,6 @@ import (
 
 	"github.com/zmap/zgrab2"
 	"github.com/zmap/zgrab2/lib/http"
-	"github.com/zmap/zgrab2/lib/nmap"
 )
 
 const (
@@ -91,17 +90,14 @@ type Flags struct {
 
 	// WithBodyLength enables adding the body_size field to the Response
 	WithBodyLength bool `long:"with-body-size" description:"Enable the body_size attribute, for how many bytes actually read"`
-
-	ProductMatchers string `long:"product-matchers" default:"*/http" description:"Matchers from nmap-service-probes file used to detect product info. Format: <probe>/<service>[,...] (wildcards supported)."`
 }
 
 // A Results object is returned by the HTTP module's Scanner.Scan()
 // implementation.
 type Results struct {
 	// Result is the final HTTP response in the RedirectResponseChain
-	Response *http.Response       `json:"response,omitempty"`
-	Banner   string               `json:"banner"`
-	Products []nmap.ExtractResult `json:"products,omitempty"`
+	Response *http.Response `json:"response,omitempty"`
+	Banner   string         `json:"banner"`
 
 	// RedirectResponseChain is non-empty is the scanner follows a redirect.
 	// It contains all redirect response prior to the final response.
@@ -117,7 +113,7 @@ type Scanner struct {
 	config                *Flags
 	customHeaders         map[string]string
 	decodedHashFn         func([]byte) string
-	productMatchers       nmap.Matchers
+	productMatcher        string
 	tagsToFindInHTML      map[string]struct{}
 	htmlAttributesParsers map[string]attributesParser
 }
@@ -242,8 +238,6 @@ func (scanner *Scanner) Init(flags zgrab2.ScanFlags) error {
 	} else if fl.ComputeDecodedBodyHashAlgorithm != "" {
 		log.Panicf("Invalid ComputeDecodedBodyHashAlgorithm choice made it through zflags: %s", scanner.config.ComputeDecodedBodyHashAlgorithm)
 	}
-
-	scanner.productMatchers = nmap.SelectMatchersGlob(fl.ProductMatchers)
 
 	scanner.tagsToFindInHTML = map[string]struct{}{
 		titleHTMLTag: {},
@@ -577,7 +571,6 @@ func (scan *scan) Grab() *zgrab2.ScanError {
 				scan.results.Response.FaviconHash = scan.selectFaviconAndGetHash(htmlParserRes.fields[faviconHTMLField])
 				scan.results.Response.FQDNs = getUniqueFQDNFromLinks(htmlParserRes.fields[linksHTMLField])
 
-				scan.results.Products, _ = scan.scanner.productMatchers.ExtractInfoFromBytes(banner)
 			}
 			if scan.scanner.config.RedirectsSucceed {
 				return nil
@@ -607,8 +600,6 @@ func (scan *scan) Grab() *zgrab2.ScanError {
 	scan.results.Response.Title = htmlParserRes.tags[titleHTMLTag]
 	scan.results.Response.FaviconHash = scan.selectFaviconAndGetHash(htmlParserRes.fields[faviconHTMLField])
 	scan.results.Response.FQDNs = getUniqueFQDNFromLinks(htmlParserRes.fields[linksHTMLField])
-
-	scan.results.Products, _ = scan.scanner.productMatchers.ExtractInfoFromBytes(banner)
 
 	bodyText := ""
 	decodedSuccessfully := false

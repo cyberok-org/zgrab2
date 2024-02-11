@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"os"
 	"sync"
 
 	log "github.com/sirupsen/logrus"
@@ -14,6 +15,7 @@ import (
 type Grab struct {
 	IP     string                  `json:"ip,omitempty"`
 	Domain string                  `json:"domain,omitempty"`
+	Tag    string                  `json:"-"`
 	Data   map[string]ScanResponse `json:"data,omitempty"`
 }
 
@@ -124,6 +126,7 @@ func BuildGrabFromInputResponse(t *ScanTarget, responses map[string]ScanResponse
 	return &Grab{
 		IP:     ipstr,
 		Domain: t.Domain,
+		Tag:    t.Tag,
 		Data:   responses,
 	}
 }
@@ -149,10 +152,10 @@ func EncodeGrab(raw *Grab, includeDebug bool) ([]byte, error) {
 }
 
 // grabTarget calls handler for each action
-func grabTarget(input ScanTarget, m *Monitor) []byte {
+func grabTarget(input ScanTarget, m *Monitor) *Grab {
 	moduleResult := make(map[string]ScanResponse)
-
 	for _, scannerName := range orderedScanners {
+		//t1 := time.Now().UTC()
 		scanner := scanners[scannerName]
 		trigger := (*scanner).GetTrigger()
 		if input.Tag != trigger {
@@ -165,6 +168,7 @@ func grabTarget(input ScanTarget, m *Monitor) []byte {
 				panic(e)
 			}
 		}(scannerName)
+
 		name, res := RunScanner(*scanner, m, input)
 		moduleResult[name] = res
 		if res.Error != nil && !config.Multiple.ContinueOnError {
@@ -174,14 +178,7 @@ func grabTarget(input ScanTarget, m *Monitor) []byte {
 			break
 		}
 	}
-
-	raw := BuildGrabFromInputResponse(&input, moduleResult)
-	result, err := EncodeGrab(raw, includeDebugOutput())
-	if err != nil {
-		log.Errorf("unable to marshal data: %s", err)
-	}
-
-	return result
+	return BuildGrabFromInputResponse(&input, moduleResult)
 }
 
 // Process sets up an output encoder, input reader, and starts grab workers.
@@ -196,6 +193,8 @@ func Process(mon *Monitor) {
 	workerDone.Add(int(workers))
 	outputDone.Add(1)
 
+	log.Info("all matchers runned")
+
 	// Start the output encoder
 	go func() {
 		defer outputDone.Done()
@@ -203,6 +202,7 @@ func Process(mon *Monitor) {
 			log.Fatal(err)
 		}
 	}()
+
 	//Start all the workers
 	for i := 0; i < workers; i++ {
 		go func(i int) {
@@ -213,13 +213,16 @@ func Process(mon *Monitor) {
 			for obj := range processQueue {
 				for run := uint(0); run < uint(config.ConnectionsPerHost); run++ {
 					result := grabTarget(obj, mon)
-					outputQueue <- result
+					data, err := EncodeGrab(result, includeDebugOutput())
+					if err != nil {
+						log.Errorf("unable to marshal data: %s", err)
+					}
+					outputQueue <- data
 				}
 			}
 			workerDone.Done()
 		}(i)
 	}
-
 	if err := config.inputTargets(processQueue); err != nil {
 		log.Fatal(err)
 	}
@@ -227,4 +230,21 @@ func Process(mon *Monitor) {
 	workerDone.Wait()
 	close(outputQueue)
 	outputDone.Wait()
+}
+
+func readBanners(ch <-chan *Grab) error {
+	return nil
+}
+
+func prepOutput() {
+	if config.OutputFileName == "-" {
+		config.outputFile = os.Stdout
+	} else {
+		var err error
+		if config.outputFile, err = os.Create(config.OutputFileName); err != nil {
+			log.Fatal(err)
+		}
+	}
+	outputFunc := OutputResultsWriterFunc(config.outputFile)
+	SetOutputFunc(outputFunc)
 }

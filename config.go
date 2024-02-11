@@ -19,6 +19,7 @@ type Config struct {
 	LogFileName        string          `short:"l" long:"log-file" default:"-" description:"Log filename, use - for stderr"`
 	NmapServiceProbes  string          `long:"nmap-service-probes" description:"Path to nmap-service-probes file. If empty, version scanning won't be used."`
 	Senders            int             `short:"s" long:"senders" default:"1000" description:"Number of send goroutines to use"`
+	NmapMatchers       int             `short:"n" long:"matchers" default:"500" description:"Number of nmap matchers goroutines to use"`
 	Debug              bool            `long:"debug" description:"Include debug fields in the output."`
 	Flush              bool            `long:"flush" description:"Flush after each line of output."`
 	GOMAXPROCS         int             `long:"gomaxprocs" default:"0" description:"Set GOMAXPROCS"`
@@ -142,4 +143,9 @@ func includeDebugOutput() bool {
 
 func NmapServiceProbes() string {
 	return config.NmapServiceProbes
+}
+
+// TODO: remove this. Made by mkn due to #412 resolution
+func GetConfig() *Config {
+	return &config
 }

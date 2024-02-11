@@ -14,14 +14,10 @@
 
 package telnet
 
-import "github.com/zmap/zgrab2/lib/nmap"
-
 // TelnetLog is the output of the telnet grab.
 type TelnetLog struct {
 	// Banner is the telnet banner returned by the server.
 	Banner string `json:"banner,omitempty"`
-
-	Products []nmap.ExtractResult `json:"products,omitempty"`
 
 	// Will is the list of options that the server says that it will use.
 	Will []TelnetOption `json:"will,omitempty"`

@@ -1,6 +1,8 @@
 package zgrab2
 
-import "time"
+import (
+	"time"
+)
 
 // Scanner is an interface that represents all functions necessary to run a scan
 type Scanner interface {

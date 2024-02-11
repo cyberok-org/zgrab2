@@ -1,6 +1,8 @@
 package zgrab2
 
-import "sync"
+import (
+	"sync"
+)
 
 // Monitor is a collection of states per scans and a channel to communicate
 // those scans to the monitor
@@ -56,6 +58,10 @@ func MakeMonitor(statusChanSize int, wg *sync.WaitGroup) *Monitor {
 			if m.states[s.name] == nil {
 				m.states[s.name] = new(State)
 			}
+
+			// TODO: remove this. made by mkn during #412 resolution
+			//log.Infof("Got status for:%+v", s)
+
 			if m.Callback != nil {
 				m.Callback(s.name)
 			}

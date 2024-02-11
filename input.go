@@ -1,7 +1,9 @@
 package zgrab2
 
 import (
+	"bufio"
 	"encoding/csv"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net"
@@ -14,7 +16,8 @@ import (
 // returns the specified ipnet, domain, and tag, or an error.
 //
 // ZGrab2 input files have three fields:
-//   IP, DOMAIN, TAG
+//
+//	IP, DOMAIN, TAG
 //
 // Each line specifies a target to scan by its IP address, domain
 // name, or both, as well as an optional tag used to determine which
@@ -26,7 +29,6 @@ import (
 //
 // Trailing empty fields may be omitted.
 // Comment lines begin with #, and empty lines are ignored.
-//
 func ParseCSVTarget(fields []string) (ipnet *net.IPNet, domain string, tag string, err error) {
 	for i := range fields {
 		fields[i] = strings.TrimSpace(fields[i])
@@ -89,9 +91,11 @@ func InputTargetsCSV(ch chan<- ScanTarget) error {
 // GetTargetsCSV reads targets from a CSV source, generates ScanTargets,
 // and delivers them to the provided channel.
 func GetTargetsCSV(source io.Reader, ch chan<- ScanTarget) error {
+	var rTotal int
 	csvreader := csv.NewReader(source)
 	csvreader.Comment = '#'
 	csvreader.FieldsPerRecord = -1 // variable
+
 	for {
 		fields, err := csvreader.Read()
 		if err == io.EOF {
@@ -113,6 +117,8 @@ func GetTargetsCSV(source io.Reader, ch chan<- ScanTarget) error {
 				// expand CIDR block into one target for each IP
 				for ip = ipnet.IP.Mask(ipnet.Mask); ipnet.Contains(ip); incrementIP(ip) {
 					ch <- ScanTarget{IP: duplicateIP(ip), Domain: domain, Tag: tag}
+					rTotal++
+					log.Info("pass info")
 				}
 				continue
 			} else {
@@ -120,8 +126,22 @@ func GetTargetsCSV(source io.Reader, ch chan<- ScanTarget) error {
 			}
 		}
 		ch <- ScanTarget{IP: ip, Domain: domain, Tag: tag}
+		rTotal++
 	}
 	return nil
+}
+
+func GetBanners(source io.Reader, ch chan<- Grab) error {
+	s := bufio.NewScanner(source)
+	for s.Scan() {
+		target := Grab{}
+		err := json.Unmarshal(s.Bytes(), &target)
+		if err != nil {
+			continue
+		}
+		ch <- target
+	}
+	return s.Err()
 }
 
 // InputTargetsFunc is a function type for target input functions.

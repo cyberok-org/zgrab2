@@ -32,15 +32,12 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"github.com/zmap/zgrab2"
-	"github.com/zmap/zgrab2/lib/nmap"
 )
 
 // ScanResults instances are returned by the module's Scan function.
 type ScanResults struct {
 	// Banner is the string sent by the server immediately after connecting.
 	Banner string `json:"banner,omitempty"`
-
-	Products []nmap.ExtractResult `json:"products,omitempty"`
 
 	// NOOP is the server's response to the NOOP command, if one is sent.
 	NOOP string `json:"noop,omitempty"`
@@ -81,8 +78,6 @@ type Flags struct {
 
 	// Verbose indicates that there should be more verbose logging.
 	Verbose bool `long:"verbose" description:"More verbose logging, include debug fields in the scan results"`
-
-	ProductMatchers string `long:"product-matchers" default:"*/pop3" description:"Matchers from nmap-service-probes file used to detect product info. Format: <probe>/<service>[,...] (wildcards supported)."`
 }
 
 // Module implements the zgrab2.Module interface.
@@ -90,8 +85,7 @@ type Module struct{}
 
 // Scanner implements the zgrab2.Scanner interface.
 type Scanner struct {
-	config          *Flags
-	productMatchers nmap.Matchers
+	config *Flags
 }
 
 // RegisterModule registers the zgrab2 module.
@@ -138,7 +132,6 @@ func (flags *Flags) Help() string {
 func (scanner *Scanner) Init(flags zgrab2.ScanFlags) error {
 	f, _ := flags.(*Flags)
 	scanner.config = f
-	scanner.productMatchers = nmap.SelectMatchersGlob(f.ProductMatchers)
 	return nil
 }
 
@@ -231,8 +224,6 @@ func (scanner *Scanner) Scan(target zgrab2.ScanTarget) (zgrab2.ScanStatus, inter
 		return sr, nil, errors.New("Invalid response for POP3")
 	}
 	result.Banner = banner
-
-	result.Products, _ = scanner.productMatchers.ExtractInfoFromBytes([]byte(banner))
 
 	if scanner.config.SendHELP {
 		ret, err := conn.SendCommand("HELP")

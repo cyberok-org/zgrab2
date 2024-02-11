@@ -5,26 +5,22 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/zmap/zgrab2"
-	"github.com/zmap/zgrab2/lib/nmap"
 )
 
 type ScanResults struct {
-	Banner        []byte               `json:"banner,omitempty"`
-	ProtocolFlags []string             `json:"protocol_flags,omitempty"`
-	NTLMInfo      NTLMInfo             `json:"ntlm_info,omitempty"`
-	TLSLog        *zgrab2.TLSLog       `json:"tls_log,omitempty"`
-	Products      []nmap.ExtractResult `json:"products,omitempty"`
+	Banner        []byte         `json:"banner,omitempty"`
+	ProtocolFlags []string       `json:"protocol_flags,omitempty"`
+	NTLMInfo      NTLMInfo       `json:"ntlm_info,omitempty"`
+	TLSLog        *zgrab2.TLSLog `json:"tls_log,omitempty"`
 }
 
 type Flags struct {
 	zgrab2.BaseFlags
 	zgrab2.TLSFlags
-	ProductMatchers string `long:"product-matchers" default:"*/ms-wbt-server" description:"Matchers from nmap-service-probes file used to detect product info. Format: <probe>/<service>[,...] (wildcards supported)."`
 }
 
 type Scanner struct {
-	config          *Flags
-	productMatchers nmap.Matchers
+	config *Flags
 }
 
 type Module struct{}
@@ -52,7 +48,6 @@ func (flags *Flags) Help() string {
 func (scanner *Scanner) Init(flags zgrab2.ScanFlags) error {
 	f, _ := flags.(*Flags)
 	scanner.config = f
-	scanner.productMatchers = nmap.SelectMatchersGlob(f.ProductMatchers)
 	return nil
 }
 
@@ -98,7 +93,6 @@ func (scanner *Scanner) Scan(target zgrab2.ScanTarget) (zgrab2.ScanStatus, inter
 	}
 
 	result := ScanResults{Banner: banner}
-	result.Products, _ = scanner.productMatchers.ExtractInfoFromBytes(banner)
 
 	answer := newFirstAnswer(banner)
 	if !answer.IsRDP {

@@ -14,17 +14,15 @@ package telnet
 import (
 	log "github.com/sirupsen/logrus"
 	"github.com/zmap/zgrab2"
-	"github.com/zmap/zgrab2/lib/nmap"
 )
 
 // Flags holds the command-line configuration for the Telnet scan module.
 // Populated by the framework.
 type Flags struct {
 	zgrab2.BaseFlags
-	MaxReadSize     int    `long:"max-read-size" description:"Set the maximum number of bytes to read when grabbing the banner" default:"65536"`
-	Banner          bool   `long:"force-banner" description:"Always return banner if it has non-zero bytes"`
-	Verbose         bool   `long:"verbose" description:"More verbose logging, include debug fields in the scan results"`
-	ProductMatchers string `long:"product-matchers" default:"*/telnet" description:"Matchers from nmap-service-probes file used to detect product info. Format: <probe>/<service>[,...] (wildcards supported)."`
+	MaxReadSize int  `long:"max-read-size" description:"Set the maximum number of bytes to read when grabbing the banner" default:"65536"`
+	Banner      bool `long:"force-banner" description:"Always return banner if it has non-zero bytes"`
+	Verbose     bool `long:"verbose" description:"More verbose logging, include debug fields in the scan results"`
 }
 
 // Module implements the zgrab2.Module interface.
@@ -32,8 +30,7 @@ type Module struct{}
 
 // Scanner implements the zgrab2.Scanner interface.
 type Scanner struct {
-	config          *Flags
-	productMatchers nmap.Matchers
+	config *Flags
 }
 
 // RegisterModule registers the zgrab2 module.
@@ -76,7 +73,6 @@ func (flags *Flags) Help() string {
 func (scanner *Scanner) Init(flags zgrab2.ScanFlags) error {
 	f, _ := flags.(*Flags)
 	scanner.config = f
-	scanner.productMatchers = nmap.SelectMatchersGlob(f.ProductMatchers)
 	return nil
 }
 
@@ -115,8 +111,5 @@ func (scanner *Scanner) Scan(target zgrab2.ScanTarget) (zgrab2.ScanStatus, inter
 			return zgrab2.TryGetScanStatus(err), result.getResult(), err
 		}
 	}
-
-	result.Products, _ = scanner.productMatchers.ExtractInfoFromBytes([]byte(result.Banner))
-
 	return zgrab2.SCAN_SUCCESS, result, nil
 }

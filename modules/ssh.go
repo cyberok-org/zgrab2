@@ -7,7 +7,6 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"github.com/zmap/zgrab2"
-	"github.com/zmap/zgrab2/lib/nmap"
 	"github.com/zmap/zgrab2/lib/ssh"
 )
 
@@ -23,15 +22,13 @@ type SSHFlags struct {
 	GexPreferredBits  uint   `long:"gex-preferred-bits" description:"The preferred number of bits for the DH GEX prime." default:"2048"`
 	HelloOnly         bool   `long:"hello-only" description:"Limit scan to the initial hello message"`
 	Verbose           bool   `long:"verbose" description:"Output additional information, including SSH client properties from the SSH handshake."`
-	ProductMatchers   string `long:"product-matchers" default:"*/ssh" description:"Matchers from nmap-service-probes file used to detect product info. Format: <probe>/<service>[,...] (wildcards supported)."`
 }
 
 type SSHModule struct {
 }
 
 type SSHScanner struct {
-	config          *SSHFlags
-	productMatchers nmap.Matchers
+	config *SSHFlags
 }
 
 func init() {
@@ -70,7 +67,6 @@ func (f *SSHFlags) Help() string {
 func (s *SSHScanner) Init(flags zgrab2.ScanFlags) error {
 	f, _ := flags.(*SSHFlags)
 	s.config = f
-	s.productMatchers = nmap.SelectMatchersGlob(f.ProductMatchers)
 	return nil
 }
 
@@ -125,8 +121,6 @@ func (s *SSHScanner) Scan(t zgrab2.ScanTarget) (zgrab2.ScanStatus, interface{}, 
 	_, err := ssh.Dial("tcp", rhost, sshConfig)
 	// TODO FIXME: Distinguish error types
 	status := zgrab2.TryGetScanStatus(err)
-
-	data.Products, _ = s.productMatchers.ExtractInfoFromBytes([]byte(data.RawBanner))
 
 	return status, data, err
 }
